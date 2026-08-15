@@ -33,8 +33,18 @@ enum Palette {
         static let moonBody = Color(r: 226, g: 232, b: 245, a: 0.95)
         static let moonCrescent = Color(r: 10, g: 14, b: 34, a: 0.92)
 
-        static let waterDampMarginBase = Color(r: 74, g: 84, b: 62, a: 0.55)
-        static let waterBodyBase = Color(r: 46, g: 96, b: 134, a: 0.92)
+        // The sky's two gradient stops at noon and at midnight; `drawSky`
+        // lerps between them by `darknessAt(game.elapsed)`, matching
+        // `skyStops()` in the JS.
+        static let skyTopDay = DimmableRGB(r: 122, g: 170, b: 210)
+        static let skyTopNight = DimmableRGB(r: 10, g: 14, b: 34)
+        static let skyBottomDay = DimmableRGB(r: 246, g: 203, b: 150)
+        static let skyBottomNight = DimmableRGB(r: 38, g: 33, b: 62)
+
+        // These are dimmed by the renderer (`.color(dim:)`), not fixed: the JS
+        // multiplies each one's r/g/b by a darkness-derived `k` every frame.
+        static let waterDampMarginBase = DimmableRGB(r: 74, g: 84, b: 62, a: 0.55)
+        static let waterBodyBase = DimmableRGB(r: 46, g: 96, b: 134, a: 0.92)
         static let waterShimmerBase = Color(r: 198, g: 232, b: 255)
 
         static let rockBody = Color(r: 78, g: 84, b: 92, a: 0.95)
@@ -43,12 +53,12 @@ enum Palette {
         static let leafVein = Color(r: 58, g: 82, b: 34, a: 0.9)
         static let grassTuft = Color(r: 64, g: 106, b: 48, a: 0.95)
 
-        static let groundTopBase = Color(r: 63, g: 90, b: 52)
-        static let groundBottomBase = Color(r: 34, g: 51, b: 31)
+        static let groundTopBase = DimmableRGB(r: 63, g: 90, b: 52)
+        static let groundBottomBase = DimmableRGB(r: 34, g: 51, b: 31)
         static let grassFringeNear = Color(r: 104, g: 132, b: 82, a: 0.5)
         static let grassFringeFar = Color(r: 138, g: 170, b: 104, a: 0.62)
 
-        static let houseWallExteriorBase = Color(r: 96, g: 80, b: 72)
+        static let houseWallExteriorBase = DimmableRGB(r: 96, g: 80, b: 72)
         static let doorwayDark = Color(hex: 0x1d140f)
         static let doorwayGlowInner = Color(r: 255, g: 214, b: 140)
         static let doorwayGlowOuter = Color(r: 255, g: 200, b: 120, a: 0)
@@ -167,6 +177,39 @@ enum Palette {
 
         static let doorDark = Color(hex: 0x2a1e18)
         static let doorLightBase = Color(r: 255, g: 236, b: 180)
+    }
+}
+
+/// A base colour, in the JS's `rgb()` units (0...255), that a renderer
+/// multiplies by a darkness-derived brightness factor before turning into a
+/// `Color` — mirrors `dim()` in `background.js` and `shade()` in `house.js`.
+/// Kept separate from a plain `Color` because SwiftUI does not let drawing
+/// code read a `Color`'s components back out to redim it.
+struct DimmableRGB {
+    let r: Double
+    let g: Double
+    let b: Double
+    var a: Double = 1
+
+    /// `k` is the multiplier the JS applies to r, g and b together — e.g.
+    /// `1 - darkness * 0.62` for the ground, `1 - darkness * 0.5` for walls.
+    func color(dim k: Double) -> Color {
+        Color(.sRGB, red: r * k / 255, green: g * k / 255, blue: b * k / 255, opacity: a)
+    }
+
+    /// The undimmed colour (`k` = 1), for callers that only need the base tone.
+    var color: Color { color(dim: 1) }
+
+    /// Linear interpolation between two base colours, e.g. the sky's noon and
+    /// midnight gradient stops by `darknessAt(game.elapsed)`.
+    static func lerp(_ from: DimmableRGB, _ to: DimmableRGB, _ t: Double) -> Color {
+        Color(
+            .sRGB,
+            red: (from.r + (to.r - from.r) * t) / 255,
+            green: (from.g + (to.g - from.g) * t) / 255,
+            blue: (from.b + (to.b - from.b) * t) / 255,
+            opacity: from.a + (to.a - from.a) * t
+        )
     }
 }
 

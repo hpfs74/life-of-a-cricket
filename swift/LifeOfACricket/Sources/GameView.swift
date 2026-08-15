@@ -25,42 +25,32 @@ struct GameView: View {
         context.fill(Path(CGRect(origin: .zero, size: size)), with: .color(Palette.page))
 
         let viewSize = CGSize(width: CGFloat(Config.View.width), height: CGFloat(Config.View.height))
+        let time = date.timeIntervalSinceReferenceDate
 
         context.letterboxed(into: viewSize, viewport: size) { letterbox in
-            // LETTERBOX-space proof: a border around the full 960x600 view.
-            // If the clip below is missing, the world marks would bleed past it.
-            letterbox.stroke(
-                Path(CGRect(origin: .zero, size: viewSize)),
-                with: .color(Palette.Hud.multiplierText),
-                lineWidth: 6
-            )
+            // The sky is VIEW space: it holds still while the meadow scrolls
+            // beneath it. House interiors (Task 5) get their own backdrop.
+            if runner.game.stage == .meadow {
+                letterbox.drawSky(game: runner.game, time: time)
+            }
 
             // Stands in for the real camera until gameplay input drives it
             // (Task 7): a temporary step between the two ends of the world,
             // holding each for a few seconds, purely to prove the world
             // transform moves independently of the letterbox.
             let limit = cameraLimit(runner.game.world)
-            let cameraX = demoCameraX(date.timeIntervalSinceReferenceDate, holdSeconds: 4, limit: limit)
+            let cameraX = demoCameraX(time, holdSeconds: 4, limit: limit)
 
             letterbox.worldSpace(cameraX: cameraX) { world in
-                // WORLD-space proof: marks at the near and far ends of the
-                // meadow. Only these move as the camera sweeps.
-                let markSize: CGFloat = 60
-                let markY = CGFloat(Config.View.height) / 2 - markSize / 2
-
-                world.fill(
-                    Path(ellipseIn: CGRect(x: -markSize / 2, y: markY, width: markSize, height: markSize)),
-                    with: .color(Palette.Entities.foodBerry)
-                )
-                world.fill(
-                    Path(ellipseIn: CGRect(x: CGFloat(Config.World.width) - markSize / 2, y: markY, width: markSize, height: markSize)),
-                    with: .color(Palette.Entities.foodAphid)
-                )
+                if runner.game.stage == .meadow {
+                    world.drawGround(game: runner.game, time: time, cameraX: cameraX)
+                }
             }
         }
 
         // SCREEN-space proof: a mark in a corner, outside both layers above,
-        // so it never scales or scrolls with the playfield.
+        // so it never scales or scrolls with the playfield. Stands in until
+        // the HUD (Task 4) and touch controls (Task 7) draw real content here.
         context.fill(
             Path(ellipseIn: CGRect(x: size.width - 26, y: 10, width: 16, height: 16)),
             with: .color(Palette.Hud.attentionMeter)
