@@ -104,7 +104,11 @@ extension GraphicsContext {
     private var menuLines: [PanelLine] {
         [
             PanelLine(text: "Life of a Cricket", color: Palette.Hud.primaryText, size: 48, weight: .bold, gap: 62),
-            PanelLine(text: "Move with WASD or the arrow keys. Hold SPACE to sing.", color: Palette.Hud.bodyText),
+            // The JS's own instructions are wrong on this point (`src/input.js`
+            // binds SING to `KeyE` and JUMP to `Space` — the reverse of what
+            // its menu text says); this describes the actual touch controls,
+            // not a port of that line.
+            PanelLine(text: "Steer with the left stick. \u{266a} sings, \u{2191} leaps, \u{2715} strikes.", color: Palette.Hud.bodyText),
             PanelLine(text: "Singing scores \u{2014} and it is loud. Birds come for the noise.", color: Palette.Hud.bodyText),
             PanelLine(text: "Hide in grass, rocks and leaves. Cover only saves you if you stay quiet.", color: Palette.Hud.bodyText, gap: 56),
             // The JS reads "Press ENTER to begin · or touch the screen"; a

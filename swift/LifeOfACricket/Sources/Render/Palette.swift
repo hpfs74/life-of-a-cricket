@@ -151,6 +151,24 @@ enum Palette {
         static let creditSubtitle = Color(r: 255, g: 255, b: 255, a: 0.5)
     }
 
+    /// `src/render/touchcontrols.js`: the on-screen stick and action buttons,
+    /// drawn in screen space in the letterbox bars.
+    enum Touch {
+        static let stickTrack = Color(r: 255, g: 255, b: 255, a: 0.08)
+        static let stickTrackBorder = Color(r: 255, g: 255, b: 255, a: 0.25)
+        static let stickKnob = Color(r: 255, g: 255, b: 255, a: 0.42)
+
+        static let buttonFillIdle = Color(r: 255, g: 255, b: 255, a: 0.12)
+        static let buttonFillHeld = Color(r: 255, g: 255, b: 255, a: 0.3)
+        static let buttonBorderIdle = Color(r: 255, g: 255, b: 255, a: 0.4)
+        static let buttonLabelHeld = Color(hex: 0x1a1f28)
+
+        // One tint per button, matching `LABEL_COLORS` in the JS.
+        static let singTint = Color(hex: 0xffe9a8)
+        static let jumpTint = Color(hex: 0xa8dcff)
+        static let fightTint = Color(hex: 0xffb4a8)
+    }
+
     /// `src/render/house.js`: the house interior, its furniture and its
     /// backdrop, drawn cross-section like a dollhouse. Almost everything here
     /// is a `DimmableRGB`: the house has its own light level (`lighting()` in

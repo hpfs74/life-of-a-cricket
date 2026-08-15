@@ -23,5 +23,12 @@
     </array>
     <key>UIRequiresFullScreen</key>
     <true/>
+    <!-- The web version runs fullscreen with no browser chrome; the clock and
+         battery indicator should not sit over the game either. Static, since
+         nothing here ever wants the status bar back. -->
+    <key>UIStatusBarHidden</key>
+    <true/>
+    <key>UIViewControllerBasedStatusBarAppearance</key>
+    <false/>
 </dict>
 </plist>

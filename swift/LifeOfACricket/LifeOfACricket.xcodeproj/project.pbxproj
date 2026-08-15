@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		6B71C45DACC10ADA707DD05E /* CricketCore in Frameworks */ = {isa = PBXBuildFile; productRef = E77247FC72CC69ED320D1BFA /* CricketCore */; };
+		EAE4DE45CFF82AB0FF9AEAE0 /* TouchInput in Frameworks */ = {isa = PBXBuildFile; productRef = 0F71E736F086A621B2F6A889 /* TouchInput */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -25,6 +26,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				6B71C45DACC10ADA707DD05E /* CricketCore in Frameworks */,
+				EAE4DE45CFF82AB0FF9AEAE0 /* TouchInput in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -69,6 +71,7 @@
 			name = LifeOfACricket;
 			packageProductDependencies = (
 				E77247FC72CC69ED320D1BFA /* CricketCore */,
+				0F71E736F086A621B2F6A889 /* TouchInput */,
 			);
 			productName = LifeOfACricket;
 			productReference = 9BA90C7602D170F0B8C70E22 /* LifeOfACricket.app */;
@@ -101,6 +104,7 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				3AAF78934F977E976A57C3AC /* XCLocalSwiftPackageReference "../CricketCore" */,
+				7612D08A09822645CDA19873 /* XCLocalSwiftPackageReference "../TouchInput" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 19CB6093F2A7FF3F2798BA44 /* Products */;
@@ -266,12 +270,20 @@
 			isa = XCLocalSwiftPackageReference;
 			relativePath = ../CricketCore;
 		};
+		7612D08A09822645CDA19873 /* XCLocalSwiftPackageReference "../TouchInput" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = ../TouchInput;
+		};
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
 		E77247FC72CC69ED320D1BFA /* CricketCore */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = CricketCore;
+		};
+		0F71E736F086A621B2F6A889 /* TouchInput */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = TouchInput;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

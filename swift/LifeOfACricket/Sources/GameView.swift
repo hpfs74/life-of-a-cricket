@@ -1,24 +1,41 @@
 import SwiftUI
 import CricketCore
+import TouchInput
 
 /// Drives the frame clock and establishes the three coordinate spaces every
-/// renderer draws into (Plan 2). Real rendering arrives in the tasks that
-/// follow this one; for now the canvas only proves the spaces are correct.
+/// renderer draws into (Plan 2), and hosts the real touch input layer
+/// (Task 7): a `TouchInputView` overlay feeding a `TouchState`, whose
+/// `intent` drives the simulation and whose stick/buttons are drawn by
+/// `drawTouchControls` in screen space, in the same `Canvas` draw pass.
 struct GameView: View {
     @StateObject private var runner = GameRunner()
+    @StateObject private var touch = TouchState()
 
     var body: some View {
         TimelineView(.animation) { timeline in
-            runner.advance(to: timeline.date, intent: .idle)
+            // Any touch anywhere starts or restarts a run, matching the JS
+            // where touching the screen at all begins play.
+            if touch.consumeStartRequest() { runner.requestStart() }
 
-            return Canvas { context, size in
-                draw(into: &context, size: size, date: timeline.date)
+            // Touch is the only input source on a phone — no keyboard, no
+            // face input — so its intent is what drives the simulation
+            // outright. Elsewhere this would be OR'd together with other
+            // sources; here there is only the one.
+            runner.advance(to: timeline.date, intent: touch.intent)
+
+            return ZStack {
+                Canvas { context, size in
+                    draw(into: &context, size: size, date: timeline.date)
+                }
+                // Sits on top so it receives every touch across the whole
+                // screen, letterbox bars included — the controls live there.
+                // A plain `UIView` reports no intrinsic size, so without an
+                // explicit frame the `ZStack` could collapse it to zero and
+                // it would never receive a touch.
+                TouchInputView(state: touch)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
             .ignoresSafeArea()
-            // TEMPORARY (R28): any tap starts a run, matching the JS where
-            // touching anywhere begins play. Task 7's real input layer
-            // replaces this with the actual touch controls.
-            .onTapGesture { runner.requestStart() }
         }
     }
 
@@ -39,12 +56,10 @@ struct GameView: View {
             case .house: letterbox.drawHouseBackdrop(game: runner.game)
             }
 
-            // Stands in for the real camera until gameplay input drives it
-            // (Task 7): a temporary step between the two ends of the world,
-            // holding each for a few seconds, purely to prove the world
-            // transform moves independently of the letterbox.
-            let limit = cameraLimit(runner.game.world)
-            let cameraX = demoCameraX(time, holdSeconds: 4, limit: limit)
+            // The real camera, driven by `GameRunner` from the cricket's
+            // position each frame — the touch stick moves the cricket, and
+            // the camera follows.
+            let cameraX = runner.camera.x
 
             letterbox.worldSpace(cameraX: cameraX) { world in
                 switch runner.game.stage {
@@ -68,14 +83,11 @@ struct GameView: View {
             }
             letterbox.drawOverlay(game: runner.game, time: time)
         }
-    }
 
-    /// Alternates between the two ends of the world, holding each for
-    /// `holdSeconds` — long enough to screenshot comfortably.
-    private func demoCameraX(_ t: Double, holdSeconds: Double, limit: Double) -> Double {
-        let cycle = holdSeconds * 2
-        let phase = (t.truncatingRemainder(dividingBy: cycle) + cycle).truncatingRemainder(dividingBy: cycle)
-        return phase < holdSeconds ? 0 : limit
+        // SCREEN space, outside the letterbox transform: the stick and
+        // buttons live in the bars around the playfield, never over the
+        // meadow, matching `drawTouchControls` in the JS.
+        context.drawTouchControls(touch, size: size)
     }
 }
 
