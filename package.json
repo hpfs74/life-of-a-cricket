@@ -1,0 +1,11 @@
+{
+  "name": "life-of-a-cricket",
+  "version": "1.0.0",
+  "description": "A browser game about the life of a cricket: eat, sing, and hide from birds.",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "test": "node --test tests/",
+    "start": "python3 -m http.server 8000"
+  }
+}
