@@ -30,6 +30,9 @@ private let tolerance = 1e-9
     #expect(world.height == golden.height)
     #expect(abs(world.top - golden.top) < tolerance)
     #expect(abs(world.door.x - golden.door.x) < tolerance)
+    #expect(abs(world.door.y - golden.door.y) < tolerance)
+    #expect(abs(world.door.width - golden.door.width) < tolerance)
+    #expect(abs(world.door.height - golden.door.height) < tolerance)
 
     #expect(world.cover.count == golden.cover.count)
     for (mine, theirs) in zip(world.cover, golden.cover) {

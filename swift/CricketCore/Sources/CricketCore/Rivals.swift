@@ -73,12 +73,17 @@ private func wanderTarget(_ rival: inout Rival, world: World, rng: RandomSource)
 public func spawnRival(world: World, rng: RandomSource, index: Int) -> Rival {
     let start = world.randomOpenPoint(rng: rng)
     let kind: RivalKind = index % 2 == 0 ? .ant : .beetle
+    // Hoisted into its own binding rather than drawn inline as a struct-
+    // literal argument below: Swift does not guarantee the evaluation order
+    // of a call's arguments, so a draw made inside one is only correct by
+    // current compiler behaviour. A named `let`, one statement per draw,
+    // pins the order explicitly.
+    let phase = rng.next() * Double.pi * 2 // Staggers gaits so the swarm does not march in lockstep.
 
     var rival = Rival(
         x: start.x, y: start.y, dirX: 1, dirY: 0, kind: kind,
         health: kind.health, flashFor: 0, nibbleFor: 0,
-        // Staggers their gaits so the swarm does not march in lockstep.
-        phase: rng.next() * Double.pi * 2,
+        phase: phase,
         targetX: start.x, targetY: start.y
     )
     wanderTarget(&rival, world: world, rng: rng)
