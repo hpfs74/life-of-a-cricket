@@ -102,6 +102,10 @@ public struct StrikeResult: Sendable {
     }
 }
 
+// Positional literal from src/rivals.js:76: how long a hit flashes, not a
+// gameplay tunable.
+private let hitFlashSeconds = 0.12
+
 /// Resolves one swing of the cricket's strike.
 ///
 /// Only the nearest bug inside a cone in front of the cricket is hit, so a swing
@@ -136,7 +140,7 @@ public func resolveStrike(cricket: Cricket, rivals: inout [Rival]) -> StrikeResu
     }
 
     rivals[index].health -= 1
-    rivals[index].flashFor = 0.12 // Positional literal from src/rivals.js:76: how long a hit flashes.
+    rivals[index].flashFor = hitFlashSeconds
 
     if rivals[index].health <= 0 {
         let killed = rivals.remove(at: index)
