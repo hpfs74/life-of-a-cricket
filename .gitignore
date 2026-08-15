@@ -1,2 +1,11 @@
 .DS_Store
 node_modules/
+
+# Xcode / SwiftPM local state. Regenerated on demand; never shared.
+# xcuserdata carries per-developer schemes and breakpoints, and Xcode will
+# also rewrite project.pbxproj with a local DEVELOPMENT_TEAM if allowed to.
+.build/
+.swiftpm/
+*.xcodeproj/xcuserdata/
+*.xcodeproj/project.xcworkspace/
+DerivedData/
