@@ -39,18 +39,6 @@ export function createGame({ storage, rng = Math.random } = {}) {
   };
 }
 
-/** Opens the credits from the menu. Only reachable when a run is not in progress. */
-export function showCredits(game) {
-  if (game.phase === 'PLAYING') return;
-  game.phase = 'CREDITS';
-}
-
-/** Returns from the credits to the menu. */
-export function closeCredits(game) {
-  if (game.phase !== 'CREDITS') return;
-  game.phase = 'MENU';
-}
-
 export function startRun(game) {
   const highScore = game.score.highScore;
 

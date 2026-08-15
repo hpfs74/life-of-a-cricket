@@ -128,30 +128,4 @@ test('losing focus releases every held key', () => {
   assert.equal(input.intent.jump, false);
 });
 
-test('C requests the credits and ESC requests going back, each consumed once', () => {
-  const target = fakeTarget();
-  const input = createInput(target);
-  input.attach();
 
-  assert.equal(input.consumeCreditsRequest(), false);
-  target.emit('keydown', { code: 'KeyC' });
-  assert.equal(input.consumeCreditsRequest(), true);
-  assert.equal(input.consumeCreditsRequest(), false);
-
-  assert.equal(input.consumeBackRequest(), false);
-  target.emit('keydown', { code: 'Escape' });
-  assert.equal(input.consumeBackRequest(), true);
-  assert.equal(input.consumeBackRequest(), false);
-});
-
-test('C does not move, sing or jump the cricket', () => {
-  const target = fakeTarget();
-  const input = createInput(target);
-  input.attach();
-
-  target.emit('keydown', { code: 'KeyC' });
-  assert.deepEqual(
-    { dx: input.intent.dx, dy: input.intent.dy, sing: input.intent.sing, jump: input.intent.jump },
-    { dx: 0, dy: 0, sing: false, jump: false },
-  );
-});

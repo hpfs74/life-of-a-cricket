@@ -1,5 +1,5 @@
 import { CONFIG } from './config.js';
-import { createGame, startRun, updateGame, showCredits, closeCredits } from './game.js';
+import { createGame, startRun, updateGame } from './game.js';
 import { createInput } from './input.js';
 import { createAudio } from './audio.js';
 import { createCamera, updateCamera } from './camera.js';
@@ -74,10 +74,6 @@ canvas.addEventListener('touchstart', (event) => {
   event.preventDefault();
   audio.unlock();
 
-  if (game.phase === 'CREDITS') {
-    closeCredits(game);
-    return;
-  }
   if (game.phase !== 'PLAYING') {
     startRun(game);
     return;
@@ -122,15 +118,7 @@ function frame(now) {
   lastTime = now;
   const time = now / 1000;
 
-  const startPressed = input.consumeStartRequest();
-  const creditsPressed = input.consumeCreditsRequest();
-  const backPressed = input.consumeBackRequest();
-
-  if (game.phase === 'CREDITS') {
-    if (startPressed || backPressed) closeCredits(game);
-  } else if (creditsPressed && game.phase !== 'PLAYING') {
-    showCredits(game);
-  } else if (startPressed && game.phase !== 'PLAYING') {
+  if (input.consumeStartRequest() && game.phase !== 'PLAYING') {
     startRun(game);
     // Swallow the keypress so the same press does not start a song immediately.
     input.intent.sing = false;
@@ -168,11 +156,11 @@ function frame(now) {
   ctx.save();
   ctx.translate(-Math.round(camera.x), 0);
   drawGround(ctx, game, time, camera.x);
-  if (game.phase !== 'MENU' && game.phase !== 'CREDITS') drawEntities(ctx, game, time);
+  if (game.phase !== 'MENU') drawEntities(ctx, game, time);
   ctx.restore();
 
-  if (game.phase !== 'MENU' && game.phase !== 'CREDITS') drawHud(ctx, game);
-  drawOverlay(ctx, game);
+  if (game.phase !== 'MENU') drawHud(ctx, game);
+  drawOverlay(ctx, game, time);
 
   ctx.restore();
 

@@ -5,10 +5,8 @@ const DOWN = ['ArrowDown', 'KeyS'];
 const SING = ['KeyE'];
 const JUMP = ['Space'];
 const START = ['Enter', 'NumpadEnter'];
-const CREDITS = ['KeyC'];
-const BACK = ['Escape'];
 
-const ALL_CODES = [...LEFT, ...RIGHT, ...UP, ...DOWN, ...SING, ...JUMP, ...START, ...CREDITS, ...BACK];
+const ALL_CODES = [...LEFT, ...RIGHT, ...UP, ...DOWN, ...SING, ...JUMP, ...START];
 
 /**
  * Turns keyboard events into a neutral intent object the simulation reads.
@@ -18,8 +16,6 @@ export function createInput(target) {
   const held = new Set();
   const intent = { dx: 0, dy: 0, sing: false, jump: false };
   let startRequested = false;
-  let creditsRequested = false;
-  let backRequested = false;
 
   function axis(negative, positive) {
     const low = negative.some((code) => held.has(code)) ? 1 : 0;
@@ -43,8 +39,6 @@ export function createInput(target) {
     // Only ENTER starts a run: SPACE is the leap, so a press on the menu must
     // not launch the cricket the moment the run begins.
     if (START.includes(event.code)) startRequested = true;
-    if (CREDITS.includes(event.code)) creditsRequested = true;
-    if (BACK.includes(event.code)) backRequested = true;
     refresh();
   }
 
@@ -66,18 +60,6 @@ export function createInput(target) {
     consumeStartRequest() {
       const requested = startRequested;
       startRequested = false;
-      return requested;
-    },
-
-    consumeCreditsRequest() {
-      const requested = creditsRequested;
-      creditsRequested = false;
-      return requested;
-    },
-
-    consumeBackRequest() {
-      const requested = backRequested;
-      backRequested = false;
       return requested;
     },
 

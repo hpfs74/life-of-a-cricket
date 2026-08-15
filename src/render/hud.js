@@ -76,27 +76,70 @@ function panel(ctx, game, lines) {
   }
 }
 
-export function drawOverlay(ctx, game) {
+const CREDIT_LINES = [
+  { text: 'Game design', color: 'rgba(255, 255, 255, 0.55)', font: '600 13px ui-sans-serif, system-ui, sans-serif' },
+  { text: 'Anna Teresa Salvestrini', color: '#ffe9a8', font: '700 22px ui-sans-serif, system-ui, sans-serif' },
+  { text: '\u00b7', color: 'rgba(255, 255, 255, 0.35)', font: '600 16px ui-sans-serif, system-ui, sans-serif' },
+  { text: 'Life of a Cricket', color: 'rgba(255, 255, 255, 0.8)', font: '600 16px ui-sans-serif, system-ui, sans-serif' },
+  { text: 'No engine, no assets \u2014 every pixel and every sound made from code', color: 'rgba(255, 255, 255, 0.5)', font: '600 13px ui-sans-serif, system-ui, sans-serif' },
+  { text: '\u00b7', color: 'rgba(255, 255, 255, 0.35)', font: '600 16px ui-sans-serif, system-ui, sans-serif' },
+];
+
+const CREDIT_LINE_HEIGHT = 34;
+const CREDIT_SCROLL_SPEED = 26;
+const CREDIT_BAND_HEIGHT = 118;
+
+/**
+ * A credits roll on the title screen: the block scrolls up through a band at
+ * the bottom of the page and wraps around forever.
+ *
+ * Each line is drawn twice, one loop-length apart, so the seam is never visible
+ * however long the menu sits open.
+ */
+function drawCreditsRoll(ctx, time) {
+  const { width, height } = CONFIG.view;
+  const bandTop = height - CREDIT_BAND_HEIGHT - 18;
+  const loop = CREDIT_LINES.length * CREDIT_LINE_HEIGHT;
+  const scroll = ((time * CREDIT_SCROLL_SPEED) % loop + loop) % loop;
+
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(0, bandTop, width, CREDIT_BAND_HEIGHT);
+  ctx.clip();
+
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+
+  CREDIT_LINES.forEach((line, index) => {
+    const base = bandTop + CREDIT_BAND_HEIGHT + index * CREDIT_LINE_HEIGHT - scroll;
+
+    for (const y of [base, base + loop]) {
+      if (y < bandTop - CREDIT_LINE_HEIGHT || y > bandTop + CREDIT_BAND_HEIGHT + CREDIT_LINE_HEIGHT) continue;
+
+      // Fade toward both edges of the band so lines slide in and out softly.
+      const distance = Math.abs(y - (bandTop + CREDIT_BAND_HEIGHT / 2));
+      const fade = Math.max(0, 1 - distance / (CREDIT_BAND_HEIGHT / 2));
+
+      ctx.globalAlpha = fade;
+      ctx.fillStyle = line.color;
+      ctx.font = line.font;
+      ctx.fillText(line.text, width / 2, y);
+    }
+  });
+
+  ctx.restore();
+}
+
+export function drawOverlay(ctx, game, time = 0) {
   if (game.phase === 'MENU') {
     panel(ctx, game, [
       { text: 'Life of a Cricket', font: '700 48px ui-sans-serif, system-ui, sans-serif', gap: 62 },
       { text: 'Move with WASD or the arrow keys. Hold SPACE to sing.', color: 'rgba(255,255,255,0.85)' },
       { text: 'Singing scores — and it is loud. Birds come for the noise.', color: 'rgba(255,255,255,0.85)' },
       { text: 'Hide in grass, rocks and leaves. Cover only saves you if you stay quiet.', color: 'rgba(255,255,255,0.85)', gap: 56 },
-      { text: 'Press ENTER to begin', color: '#ffe9a8', font: '700 22px ui-sans-serif, system-ui, sans-serif', gap: 40 },
-      { text: 'C for credits', color: 'rgba(255,255,255,0.55)', font: '600 15px ui-sans-serif, system-ui, sans-serif' },
+      { text: 'Press ENTER to begin', color: '#ffe9a8', font: '700 22px ui-sans-serif, system-ui, sans-serif' },
     ]);
-    return;
-  }
-
-  if (game.phase === 'CREDITS') {
-    panel(ctx, game, [
-      { text: 'Credits', font: '700 42px ui-sans-serif, system-ui, sans-serif', gap: 66 },
-      { text: 'Game design', color: 'rgba(255,255,255,0.6)', font: '600 14px ui-sans-serif, system-ui, sans-serif', gap: 30 },
-      { text: 'Anna Teresa Salvestrini', font: '700 28px ui-sans-serif, system-ui, sans-serif', gap: 60 },
-      { text: 'Life of a Cricket', color: 'rgba(255,255,255,0.75)', font: '600 17px ui-sans-serif, system-ui, sans-serif', gap: 56 },
-      { text: 'Press ENTER or ESC to go back', color: '#ffe9a8', font: '700 18px ui-sans-serif, system-ui, sans-serif' },
-    ]);
+    drawCreditsRoll(ctx, time);
     return;
   }
 

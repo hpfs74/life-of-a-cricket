@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { CONFIG } from '../src/config.js';
-import { createGame, startRun, updateGame, difficultyAt, dayAt, showCredits, closeCredits } from '../src/game.js';
+import { createGame, startRun, updateGame, difficultyAt, dayAt } from '../src/game.js';
 
 function memoryStorage() {
   const data = {};
@@ -312,34 +312,8 @@ test('the game tracks whether it is night', () => {
   assert.equal(game.night, true, 'halfway through a day it is night');
 });
 
-test('credits open from the menu and return to it', () => {
-  const game = createGame({ storage: memoryStorage(), rng: fixedRng });
-  assert.equal(game.phase, 'MENU');
 
-  showCredits(game);
-  assert.equal(game.phase, 'CREDITS');
 
-  closeCredits(game);
-  assert.equal(game.phase, 'MENU');
-});
-
-test('credits are reachable from the game-over screen too', () => {
-  const game = newGame();
-  game.phase = 'GAME_OVER';
-  showCredits(game);
-  assert.equal(game.phase, 'CREDITS');
-});
-
-test('credits cannot be opened mid-run, and nothing simulates while they are up', () => {
-  const game = newGame();
-  showCredits(game);
-  assert.equal(game.phase, 'PLAYING', 'a run must not be interrupted by the credits');
-
-  game.phase = 'CREDITS';
-  updateGame(game, singing, 1);
-  assert.equal(game.score.points, 0);
-  assert.equal(game.elapsed, 0);
-});
 
 test('rival insects share the meadow and take food the cricket leaves', () => {
   const game = newGame();
