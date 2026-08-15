@@ -45,6 +45,11 @@ struct GameView: View {
                 if runner.game.stage == .meadow {
                     world.drawGround(game: runner.game, time: time, cameraX: cameraX)
                 }
+                // Entities are stage-agnostic, same as `drawEntities` in the JS:
+                // the house reuses the same cricket/rivals/spiders/food types.
+                if runner.game.phase != .menu {
+                    world.drawEntities(game: runner.game, time: time)
+                }
             }
         }
 

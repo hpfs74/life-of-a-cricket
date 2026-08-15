@@ -93,6 +93,7 @@ enum Palette {
         static let stunStars = Color(r: 255, g: 232, b: 150, a: 0.9)
         static let hiddenMarkerText = Color(r: 160, g: 220, b: 255, a: 0.9)
 
+        static let birdShadow = Color(r: 0, g: 0, b: 0, a: 0.28)
         static let batDiving = Color(hex: 0x12161d)
         static let batBase = Color(hex: 0x1d222c)
         static let birdCircleMarkerBase = Color(r: 255, g: 96, b: 96)
