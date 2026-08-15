@@ -23,12 +23,23 @@ ES module imports over `file://`.
 
 | Action | Keyboard | Touch |
 | --- | --- | --- |
-| Move | `WASD` or arrow keys | drag from anywhere |
-| Sing | hold `E` | touch and hold still |
-| Leap to cover | `SPACE` | quick tap |
-| Strike | `F` | — |
-| Start / restart | `ENTER` | tap |
+| Move | `WASD` or arrow keys | floating stick, left half of the screen |
+| Sing | hold `E` | hold **♪** |
+| Leap to cover | `SPACE` | tap **↑** |
+| Strike | `F` | tap **✕** |
+| Start / restart | `ENTER` | touch anywhere |
 | Mute | `M` | — |
+
+On a phone, put a thumb down anywhere on the left half and a stick appears there
+— there is nothing to aim for, and lifting off stops the cricket dead, which
+matters because singing needs it standing still. The three actions sit on an arc
+under the right thumb. Steering and pressing act independently, so you can run
+and swing at the same time.
+
+The controls are drawn in the letterbox around the playfield, so they never
+cover any of the meadow. Held upright, the game pauses and asks you to turn the
+phone sideways: the meadow is three screens wide and the house is a cutaway, and
+both need the width to be readable.
 
 The credits scroll continuously at the foot of the title screen.
 
@@ -134,6 +145,7 @@ ramp.
 | `src/camera.js` | Horizontal camera that follows the cricket |
 | `src/game.js` | State machine, wave director, event stream |
 | `src/input.js` | Keyboard → a neutral intent object |
+| `src/touch.js` | On-screen stick and buttons → the same intent object |
 | `src/audio.js` | Synthesized ambience, calls and effects (no audio files) |
 | `src/render/` | Drawing only; never mutates game state |
 

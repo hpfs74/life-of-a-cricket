@@ -1,22 +1,26 @@
 import { CONFIG } from './config.js';
 import { createGame, startRun, updateGame } from './game.js';
 import { createInput } from './input.js';
+import { createTouchControls } from './touch.js';
 import { createAudio } from './audio.js';
 import { createCamera, updateCamera } from './camera.js';
 import { drawSky, drawGround } from './render/background.js';
 import { drawHouseBackdrop, drawHouseInterior } from './render/house.js';
 import { drawEntities } from './render/entities.js';
 import { drawHud, drawOverlay } from './render/hud.js';
+import { drawTouchControls, drawRotatePrompt } from './render/touchcontrols.js';
 
 const canvas = document.getElementById('stage');
 const ctx = canvas.getContext('2d');
 
 const game = createGame({ storage: window.localStorage, rng: Math.random });
 const input = createInput(window);
+const touch = createTouchControls(canvas);
 const audio = createAudio();
 const camera = createCamera(game.world, game.cricket);
 
 input.attach();
+touch.attach();
 
 // The simulation always runs in CONFIG.world units; this transform letterboxes
 // that fixed world into whatever canvas the device gives us.
@@ -38,79 +42,27 @@ function resize() {
   view.scale = scale;
   view.offsetX = (cssWidth - CONFIG.view.width * scale) / 2;
   view.offsetY = (cssHeight - CONFIG.view.height * scale) / 2;
+
+  // The on-screen controls live in screen space, in the letterbox around the
+  // playfield, so they never cover any of it.
+  touch.resize(cssWidth, cssHeight);
 }
 
 window.addEventListener('resize', resize);
 resize();
 
-// Touch: dragging steers, holding still sings, and a quick tap leaps — so the
-// game is playable on a phone without a keyboard.
-const TAP_MAX_SECONDS = 0.25;
-const TAP_MAX_DISTANCE = 14;
-
-let touchOrigin = null;
-let touchStartedAt = 0;
-let touchTravelled = 0;
-let touchJumpFrames = 0;
-
-function touchIntent(touch) {
-  const dx = touch.clientX - touchOrigin.x;
-  const dy = touch.clientY - touchOrigin.y;
-  const distance = Math.hypot(dx, dy);
-  touchTravelled = Math.max(touchTravelled, distance);
-
-  if (distance < TAP_MAX_DISTANCE) {
-    input.intent.dx = 0;
-    input.intent.dy = 0;
-    input.intent.sing = true;
-    return;
-  }
-
-  input.intent.sing = false;
-  input.intent.dx = dx / distance;
-  input.intent.dy = dy / distance;
-}
-
-canvas.addEventListener('touchstart', (event) => {
-  event.preventDefault();
-  audio.unlock();
-
-  if (game.phase !== 'PLAYING') {
-    startRun(game);
-    return;
-  }
-
-  const touch = event.touches[0];
-  touchOrigin = { x: touch.clientX, y: touch.clientY };
-  touchStartedAt = performance.now();
-  touchTravelled = 0;
-  touchIntent(touch);
-}, { passive: false });
-
-canvas.addEventListener('touchmove', (event) => {
-  event.preventDefault();
-  if (touchOrigin) touchIntent(event.touches[0]);
-}, { passive: false });
-
-canvas.addEventListener('touchend', (event) => {
-  event.preventDefault();
-
-  const heldSeconds = (performance.now() - touchStartedAt) / 1000;
-  if (touchOrigin && heldSeconds < TAP_MAX_SECONDS && touchTravelled < TAP_MAX_DISTANCE) {
-    // Hold the pulse for two frames so the cricket's edge detector sees it.
-    touchJumpFrames = 2;
-  }
-
-  touchOrigin = null;
-  input.intent.dx = 0;
-  input.intent.dy = 0;
-  input.intent.sing = false;
-}, { passive: false });
-
 window.addEventListener('keydown', (event) => {
   audio.unlock();
   if (event.code === 'KeyM') audio.toggleMute();
 });
+
+canvas.addEventListener('touchstart', () => audio.unlock(), { passive: true });
+
+/** A phone held upright cannot show a world this wide; ask for landscape. */
+function isPortrait() {
+  const touchCapable = (navigator.maxTouchPoints ?? 0) > 0;
+  return touchCapable && window.innerHeight > window.innerWidth;
+}
 
 let lastTime = performance.now();
 
@@ -119,17 +71,27 @@ function frame(now) {
   lastTime = now;
   const time = now / 1000;
 
-  if (input.consumeStartRequest() && game.phase !== 'PLAYING') {
+  const portrait = isPortrait();
+
+  const startRequested = input.consumeStartRequest() || touch.consumeStartRequest();
+  if (startRequested && game.phase !== 'PLAYING' && !portrait) {
     startRun(game);
-    // Swallow the keypress so the same press does not start a song immediately.
+    // Swallow the press so the same one does not start a song immediately.
     input.intent.sing = false;
   }
 
-  // A touch tap and a held SPACE both mean "leap"; either one is enough.
-  const intent = touchJumpFrames > 0 ? { ...input.intent, jump: true } : input.intent;
-  if (touchJumpFrames > 0) touchJumpFrames -= 1;
+  // Keyboard and touch feed the same simulation: whichever is being used wins,
+  // and holding both simply means the action is held.
+  const intent = {
+    dx: input.intent.dx || touch.intent.dx,
+    dy: input.intent.dy || touch.intent.dy,
+    sing: input.intent.sing || touch.intent.sing,
+    jump: input.intent.jump || touch.intent.jump,
+    strike: input.intent.strike || touch.intent.strike,
+  };
 
-  for (const event of updateGame(game, intent, dt)) {
+  // A phone held upright pauses rather than playing on in a letterbox strip.
+  for (const event of portrait ? [] : updateGame(game, intent, dt)) {
     audio.play(event.type, event);
 
     // A doorway swaps the whole world out; re-frame rather than sliding across.
@@ -172,6 +134,10 @@ function frame(now) {
   drawOverlay(ctx, game, time);
 
   ctx.restore();
+
+  // Controls and the rotate prompt are screen-space, drawn over the letterbox.
+  drawTouchControls(ctx, touch);
+  if (portrait) drawRotatePrompt(ctx, window.innerWidth, window.innerHeight, time);
 
   requestAnimationFrame(frame);
 }

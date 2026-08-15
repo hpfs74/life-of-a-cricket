@@ -1,4 +1,20 @@
 export const CONFIG = {
+  // On-screen controls for touch devices: a floating stick on the left half and
+  // three action buttons under the right thumb.
+  touch: {
+    // Button size and spacing scale with the screen's short side.
+    buttonScale: 0.085,
+    buttonMinRadius: 30,
+    buttonMaxRadius: 46,
+    edgePadding: 22,
+    // How far the thumb must travel from where it landed before the cricket
+    // moves, so resting a thumb still counts as standing still.
+    stickDeadZone: 12,
+    stickMaxRadius: 64,
+    // The stick only picks up touches starting in this fraction of the width.
+    stickZoneFraction: 0.5,
+  },
+
   // The window onto the world. The meadow is wider than this, so the camera
   // scrolls sideways to follow the cricket.
   view: {

@@ -144,7 +144,7 @@ export function drawOverlay(ctx, game, time = 0) {
       { text: 'Move with WASD or the arrow keys. Hold SPACE to sing.', color: 'rgba(255,255,255,0.85)' },
       { text: 'Singing scores — and it is loud. Birds come for the noise.', color: 'rgba(255,255,255,0.85)' },
       { text: 'Hide in grass, rocks and leaves. Cover only saves you if you stay quiet.', color: 'rgba(255,255,255,0.85)', gap: 56 },
-      { text: 'Press ENTER to begin', color: '#ffe9a8', font: '700 22px ui-sans-serif, system-ui, sans-serif' },
+      { text: 'Press ENTER to begin \u00b7 or touch the screen', color: '#ffe9a8', font: '700 22px ui-sans-serif, system-ui, sans-serif' },
     ]);
     drawCreditsRoll(ctx, time);
     return;
@@ -159,7 +159,7 @@ export function drawOverlay(ctx, game, time = 0) {
         color: game.newRecord ? '#ffe9a8' : 'rgba(255,255,255,0.75)',
         gap: 56,
       },
-      { text: 'Press ENTER to sing again', color: '#ffe9a8', font: '700 20px ui-sans-serif, system-ui, sans-serif' },
+      { text: 'Press ENTER to sing again \u00b7 or touch the screen', color: '#ffe9a8', font: '700 20px ui-sans-serif, system-ui, sans-serif' },
     ]);
   }
 }
