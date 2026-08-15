@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { CONFIG } from '../src/config.js';
 import { createGame, startRun, updateGame, difficultyAt, dayAt } from '../src/game.js';
+import { isWater } from '../src/world.js';
 
 function memoryStorage() {
   const data = {};
@@ -179,19 +180,27 @@ test('the day counter starts at one and advances once per day length', () => {
   assert.equal(dayAt(day * 4.5), 5);
 });
 
-test('a cricket that hides and keeps quiet survives day after day', () => {
+/** The nearest tuft with no spider in it, in whatever meadow currently exists. */
+function safeShelter(game) {
+  return game.world.cover.find(
+    (item) => !game.spiders.some((spider) => spider.cover === item),
+  );
+}
+
+test('a cricket that keeps finding cover and keeps quiet survives day after day', () => {
   const game = createGame({ storage: memoryStorage(), rng: seededRng(9) });
   startRun(game);
   assert.equal(game.day, 1);
   assert.ok(game.world.cover.length > 0, 'this test needs a meadow with cover');
 
-  // Sit in cover in silence: patrols should scan, lose the trail and leave.
-  const shelter = game.world.cover[0];
-  game.cricket.x = shelter.x;
-  game.cricket.y = shelter.y;
-
+  // Sit in empty cover in silence. The meadow rearranges at every new day, so
+  // the cricket has to re-find shelter rather than trusting yesterday's spot.
   // A few frames past the boundary, since summing 1/60 lands just short of it.
   for (let i = 0; i < CONFIG.game.secondsPerDay * 2 * 60 + 5; i += 1) {
+    const shelter = safeShelter(game);
+    game.cricket.x = shelter.x;
+    game.cricket.y = shelter.y;
+
     updateGame(game, still, 1 / 60);
     assert.equal(game.day, dayAt(game.elapsed), 'day drifted from elapsed time');
   }
@@ -403,4 +412,80 @@ test('the spider wake and lunge are reported so the player can hear them coming'
 
   assert.ok(seen.has('spider-wake'), 'no wake was reported');
   assert.ok(seen.has('spider-lunge'), 'no lunge was reported');
+});
+
+test('the meadow rearranges itself when a new day turns over', () => {
+  const game = createGame({ storage: memoryStorage(), rng: seededRng(21) });
+  startRun(game);
+
+  const oldWorld = game.world;
+  const oldCover = game.world.cover.map((c) => `${c.x.toFixed(1)},${c.y.toFixed(1)}`).join('|');
+  const oldWater = game.world.water.map((c) => `${c.x.toFixed(1)},${c.y.toFixed(1)}`).join('|');
+
+  let announced = false;
+  for (let i = 0; i < CONFIG.game.secondsPerDay * 60 + 10; i += 1) {
+    const shelter = safeShelter(game);
+    game.cricket.x = shelter.x;
+    game.cricket.y = shelter.y;
+    if (updateGame(game, still, 1 / 60).some((e) => e.type === 'new-day')) announced = true;
+  }
+
+  assert.ok(announced, 'the new day was never announced');
+  assert.notEqual(game.world, oldWorld, 'the world object should have been rebuilt');
+  assert.notEqual(
+    game.world.cover.map((c) => `${c.x.toFixed(1)},${c.y.toFixed(1)}`).join('|'),
+    oldCover,
+    'the cover did not move',
+  );
+  assert.notEqual(
+    game.world.water.map((c) => `${c.x.toFixed(1)},${c.y.toFixed(1)}`).join('|'),
+    oldWater,
+    'the stream did not find a new course',
+  );
+  assert.ok(game.shiftedFor > 0, 'the player should be told the meadow shifted');
+});
+
+test('a reshuffle never leaves the cricket in water or on top of a spider', () => {
+  for (let seed = 1; seed <= 12; seed += 1) {
+    const game = createGame({ storage: memoryStorage(), rng: seededRng(seed) });
+    startRun(game);
+
+    // Drop the cricket somewhere arbitrary, then force the day over.
+    game.cricket.x = game.world.width * 0.5;
+    game.cricket.y = game.world.top + 40;
+    game.elapsed = CONFIG.game.secondsPerDay - 1 / 120;
+    updateGame(game, still, 1 / 60);
+
+    assert.equal(game.day, 2, `seed ${seed} did not turn over`);
+    assert.equal(
+      isWater(game.world, game.cricket.x, game.cricket.y, CONFIG.cricket.radius),
+      false,
+      `seed ${seed} left the cricket in the water`,
+    );
+
+    const onSpider = game.spiders.some(
+      (s) => Math.hypot(s.homeX - game.cricket.x, s.homeY - game.cricket.y) <= s.cover.radius,
+    );
+    assert.equal(onSpider, false, `seed ${seed} dropped a spider on the cricket`);
+    assert.equal(game.cricket.jumping, false, 'a leap in progress should be cancelled');
+  }
+});
+
+test('food that the new stream swallowed is cleared away', () => {
+  const game = createGame({ storage: memoryStorage(), rng: seededRng(33) });
+  startRun(game);
+
+  // Scatter crumbs everywhere, including where water will land.
+  game.food.items = Array.from({ length: 60 }, (unused, i) => ({
+    x: (i * 47) % game.world.width,
+    y: game.world.top + ((i * 31) % (game.world.height - game.world.top)),
+    type: 'seed', value: 25, radius: 6, age: 0,
+  }));
+
+  game.elapsed = CONFIG.game.secondsPerDay - 1 / 120;
+  updateGame(game, still, 1 / 60);
+
+  for (const item of game.food.items) {
+    assert.equal(isWater(game.world, item.x, item.y), false, 'a crumb was left floating');
+  }
 });

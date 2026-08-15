@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { CONFIG } from '../src/config.js';
 import {
   createWorld, clampToBounds, coverAt, isHidden, randomOpenPoint, spawnPoint, nearestCover,
+  isWater, nearestDryPoint,
 } from '../src/world.js';
 
 // A deterministic stand-in for Math.random so layout tests are repeatable.
@@ -180,4 +181,58 @@ test('the direction cone is limited by halfAngleDegrees', () => {
     maxDistance: 320, exclude: byName('here'), dirX: 1, dirY: 0, halfAngleDegrees: 20,
   });
   assert.equal(narrow.name, 'east');
+});
+
+test('every meadow has water in it', () => {
+  const world = createWorld(seededRng(6));
+  assert.ok(world.water.length > 0);
+});
+
+test('cover grows on dry ground, never in the stream', () => {
+  for (let seed = 1; seed <= 25; seed += 1) {
+    const world = createWorld(seededRng(seed));
+    for (const item of world.cover) {
+      assert.equal(
+        isWater(world, item.x, item.y, item.radius),
+        false,
+        `seed ${seed}: ${item.type} is standing in water`,
+      );
+    }
+  }
+});
+
+test('food never spawns in the water', () => {
+  const world = createWorld(seededRng(8));
+  const rng = seededRng(41);
+  for (let i = 0; i < 300; i += 1) {
+    const point = randomOpenPoint(world, rng, 20);
+    assert.equal(isWater(world, point.x, point.y), false, 'a crumb landed in the stream');
+  }
+});
+
+test('nearestDryPoint rescues a point stranded in water', () => {
+  const world = createWorld(seededRng(2));
+  const wet = world.water[Math.floor(world.water.length / 2)];
+
+  const rescued = nearestDryPoint(world, wet.x, wet.y, CONFIG.cricket.radius);
+  assert.equal(isWater(world, rescued.x, rescued.y, CONFIG.cricket.radius), false);
+});
+
+test('nearestDryPoint leaves an already-safe point where it is', () => {
+  const world = createWorld(seededRng(2));
+  const spawn = spawnPoint(world);
+  const kept = nearestDryPoint(world, spawn.x, spawn.y, CONFIG.cricket.radius);
+
+  assert.ok(Math.abs(kept.x - spawn.x) < 0.001);
+  assert.ok(Math.abs(kept.y - spawn.y) < 0.001);
+});
+
+test('nearestDryPoint honours an extra avoid rule as well as the water', () => {
+  const world = createWorld(seededRng(2));
+  const spawn = spawnPoint(world);
+  const banned = (x, y) => Math.hypot(x - spawn.x, y - spawn.y) < 200;
+
+  const found = nearestDryPoint(world, spawn.x, spawn.y, CONFIG.cricket.radius, banned);
+  assert.equal(banned(found.x, found.y), false, 'it settled inside the banned zone');
+  assert.equal(isWater(world, found.x, found.y, CONFIG.cricket.radius), false);
 });

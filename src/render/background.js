@@ -68,6 +68,53 @@ function drawCelestialBody(ctx, width, horizon, phase) {
   }
 }
 
+/**
+ * Water, drawn as one merged shape rather than a string of visible discs: the
+ * circles are filled onto the same path so their overlaps disappear.
+ */
+function drawWater(ctx, world, time, darkness, visibleFrom, visibleTo) {
+  const inView = world.water.filter(
+    (c) => c.x + c.radius >= visibleFrom && c.x - c.radius <= visibleTo,
+  );
+  if (inView.length === 0) return;
+
+  const dim = 1 - darkness * 0.55;
+  const path = (grow) => {
+    ctx.beginPath();
+    for (const c of inView) {
+      ctx.moveTo(c.x + c.radius + grow, c.y);
+      ctx.ellipse(c.x, c.y, c.radius + grow, (c.radius + grow) * 0.72, 0, 0, Math.PI * 2);
+    }
+  };
+
+  // A damp margin where the ground meets the water.
+  ctx.fillStyle = `rgba(${Math.round(74 * dim)}, ${Math.round(84 * dim)}, ${Math.round(62 * dim)}, 0.55)`;
+  path(6);
+  ctx.fill();
+
+  ctx.fillStyle = `rgba(${Math.round(46 * dim)}, ${Math.round(96 * dim)}, ${Math.round(134 * dim)}, 0.92)`;
+  path(0);
+  ctx.fill();
+
+  // Shimmer: short highlights that drift along the surface.
+  ctx.save();
+  path(-4);
+  ctx.clip();
+  ctx.strokeStyle = `rgba(198, 232, 255, ${0.14 + (1 - darkness) * 0.16})`;
+  ctx.lineWidth = 2;
+  for (const c of inView) {
+    for (let i = 0; i < 2; i += 1) {
+      const drift = Math.sin(time * 0.9 + c.x * 0.03 + i * 2.1) * c.radius * 0.4;
+      const y = c.y + (i - 0.5) * c.radius * 0.5;
+      ctx.beginPath();
+      ctx.moveTo(c.x - c.radius * 0.45 + drift, y);
+      ctx.lineTo(c.x + c.radius * 0.3 + drift, y);
+      ctx.stroke();
+    }
+  }
+  ctx.restore();
+}
+
 function drawCover(ctx, item, time) {
   const sway = Math.sin(time * 1.4 + item.x * 0.02) * 3;
 
@@ -193,6 +240,8 @@ export function drawGround(ctx, game, time, cameraX = 0) {
       ctx.stroke();
     }
   }
+
+  drawWater(ctx, game.world, time, darkness, visibleFrom, visibleTo);
 
   for (const item of game.world.cover) {
     if (item.x + item.radius < visibleFrom || item.x - item.radius > visibleTo) continue;

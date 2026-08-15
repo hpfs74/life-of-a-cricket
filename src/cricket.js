@@ -1,5 +1,5 @@
 import { CONFIG } from './config.js';
-import { clampToBounds, coverAt, isHidden, nearestCover, spawnPoint } from './world.js';
+import { clampToBounds, coverAt, isHidden, isWater, nearestCover, spawnPoint } from './world.js';
 
 export function createCricket(world) {
   const spawn = spawnPoint(world);
@@ -27,6 +27,64 @@ export function createCricket(world) {
 }
 
 /**
+ * Picks a landing spot for a leap with no cover to aim at.
+ *
+ * It looks outward along the hop direction for the first dry ground: at a
+ * narrow stretch of stream that clears it, and at a wide one it runs out of
+ * range and the cricket stops at the near bank instead of drowning.
+ */
+function dryLanding(cricket, world, dirX, dirY) {
+  const { fallbackDistance, range } = CONFIG.cricket.jump;
+  const r = CONFIG.cricket.radius;
+  const at = (distance) => clampToBounds(world, cricket.x + dirX * distance, cricket.y + dirY * distance, r);
+
+  for (let distance = fallbackDistance; distance <= range; distance += 12) {
+    const candidate = at(distance);
+    if (!isWater(world, candidate.x, candidate.y, r)) return candidate;
+  }
+
+  // Nothing dry ahead: pull back to the last dry step short of the water.
+  for (let distance = fallbackDistance - 12; distance > 0; distance -= 12) {
+    const candidate = at(distance);
+    if (!isWater(world, candidate.x, candidate.y, r)) return candidate;
+  }
+
+  return { x: cricket.x, y: cricket.y };
+}
+
+/**
+ * Moves the cricket, stopping at the water's edge.
+ *
+ * A blocked move is retried on each axis alone, so walking into a bank at an
+ * angle slides along it rather than sticking fast.
+ */
+function walk(cricket, world, nx, ny, dt) {
+  const r = CONFIG.cricket.radius;
+  const step = CONFIG.cricket.speed * dt;
+  const dry = (point) => !isWater(world, point.x, point.y, r);
+
+  const full = clampToBounds(world, cricket.x + nx * step, cricket.y + ny * step, r);
+  if (dry(full)) {
+    cricket.x = full.x;
+    cricket.y = full.y;
+    return;
+  }
+
+  const alongX = clampToBounds(world, cricket.x + nx * step, cricket.y, r);
+  if (nx !== 0 && dry(alongX)) {
+    cricket.x = alongX.x;
+    cricket.y = alongX.y;
+    return;
+  }
+
+  const alongY = clampToBounds(world, cricket.x, cricket.y + ny * step, r);
+  if (ny !== 0 && dry(alongY)) {
+    cricket.x = alongY.x;
+    cricket.y = alongY.y;
+  }
+}
+
+/**
  * Aims a leap and commits the cricket to it.
  *
  * The target is the nearest cover in the held direction, excluding whatever the
@@ -49,17 +107,13 @@ function startJump(cricket, intent, world) {
 
   let destination;
   if (target) {
+    // Cover only ever grows on dry ground, so a cover target is always safe.
     destination = clampToBounds(world, target.x, target.y, CONFIG.cricket.radius);
   } else {
     // Fall back to the held direction, or to whichever way the cricket faces.
     const hopX = magnitude > 0 ? aimX : cricket.dirX;
     const hopY = magnitude > 0 ? aimY : cricket.dirY;
-    destination = clampToBounds(
-      world,
-      cricket.x + hopX * jump.fallbackDistance,
-      cricket.y + hopY * jump.fallbackDistance,
-      CONFIG.cricket.radius,
-    );
+    destination = dryLanding(cricket, world, hopX, hopY);
   }
 
   const distance = Math.hypot(destination.x - cricket.x, destination.y - cricket.y);
@@ -138,15 +192,7 @@ export function updateCricket(cricket, intent, dt, world) {
           const ny = intent.dy / magnitude;
           cricket.dirX = nx;
           cricket.dirY = ny;
-
-          const next = clampToBounds(
-            world,
-            cricket.x + nx * CONFIG.cricket.speed * dt,
-            cricket.y + ny * CONFIG.cricket.speed * dt,
-            CONFIG.cricket.radius,
-          );
-          cricket.x = next.x;
-          cricket.y = next.y;
+          walk(cricket, world, nx, ny, dt);
         }
       }
     }

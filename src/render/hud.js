@@ -42,7 +42,13 @@ export function drawHud(ctx, game) {
   ctx.font = '700 24px ui-sans-serif, system-ui, sans-serif';
   ctx.fillText(`${game.night ? '\u263e' : '\u2600'}  Day ${game.day}`, width / 2, 18);
 
-  if (game.score.multiplier > CONFIG.score.multiplierStart + 0.001) {
+  if (game.shiftedFor > 0) {
+    // Fade the caption out so a new day reads as an event, not a glitch.
+    const fade = Math.min(1, game.shiftedFor / 1.2);
+    ctx.fillStyle = `rgba(190, 226, 255, ${fade})`;
+    ctx.font = '600 15px ui-sans-serif, system-ui, sans-serif';
+    ctx.fillText('the meadow has shifted', width / 2, 50);
+  } else if (game.score.multiplier > CONFIG.score.multiplierStart + 0.001) {
     ctx.fillStyle = '#ffe9a8';
     ctx.font = '700 20px ui-sans-serif, system-ui, sans-serif';
     ctx.fillText(`x${game.score.multiplier.toFixed(1)}`, width / 2, 48);

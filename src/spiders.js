@@ -29,14 +29,16 @@ function makeSpider(cover) {
 }
 
 /**
- * Settles spiders into distinct cover pieces, skipping anything close to the
- * spawn point so a run cannot open with an unavoidable death.
+ * Settles spiders into distinct cover pieces, skipping anything close to
+ * `keepAwayFrom` so the cricket is never handed an unavoidable death. That is
+ * the spawn point on a fresh run, and the cricket itself when the meadow
+ * rearranges mid-run.
  */
-export function createSpiders(world, rng = Math.random) {
-  const spawn = spawnPoint(world);
+export function createSpiders(world, rng = Math.random, keepAwayFrom = null) {
+  const safe = keepAwayFrom ?? spawnPoint(world);
 
   const eligible = world.cover.filter(
-    (item) => Math.hypot(item.x - spawn.x, item.y - spawn.y) >= CONFIG.spiders.minDistanceFromSpawn,
+    (item) => Math.hypot(item.x - safe.x, item.y - safe.y) >= CONFIG.spiders.minDistanceFromSpawn,
   );
 
   // Fisher-Yates over a copy, so each spider gets its own tuft.

@@ -64,6 +64,21 @@ export const CONFIG = {
     },
   },
 
+  // A stream and a pond or two. Water is stored as overlapping circles: cheap
+  // to test against, and they blob together into organic shapes.
+  water: {
+    streamSegments: 20,
+    streamMinRadius: 24,
+    streamMaxRadius: 44,
+    // How far the stream can wander sideways between segments.
+    streamWander: 90,
+    // The stream keeps this clear of the spawn point so a run never starts wet.
+    spawnClearance: 260,
+    pondCountRange: [1, 2],
+    pondBlobs: 5,
+    pondRadiusRange: [34, 64],
+  },
+
   // Spiders live inside cover. They are the exception to the game's core rule:
   // hiding and keeping quiet beats anything with wings, but not one of these.
   spiders: {
@@ -127,6 +142,8 @@ export const CONFIG = {
     // How long one in-game day lasts. Also the period of the sky's dawn-to-dusk
     // cycle, so the day counter and what the player sees agree.
     secondsPerDay: 30,
+    // How long the "the meadow has shifted" caption stays up after a new day.
+    shiftCaptionSeconds: 3.5,
     // Birds patrol on their own schedule too, so staying silent is quieter,
     // never safe. Scaled down by difficulty as the run goes on.
     patrolIntervalSeconds: 13,

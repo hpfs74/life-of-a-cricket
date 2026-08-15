@@ -46,8 +46,16 @@ The credits scroll continuously at the foot of the title screen.
 - **Leaping** carries you to the nearest cover in the direction you are holding.
   You cannot steer, sing or cancel in mid-air — but being airborne dodges a
   dive, which makes the leap the other answer to a predator's cry.
-- **Days pass** on a dawn-to-midnight-to-dawn cycle. Birds hunt by day; bats
-  take over at night.
+- **Days pass** on a light cycle that runs from bright, down through midnight
+  and back. Birds hunt by day; bats take over at night.
+- **Water** cuts the meadow: a meandering stream plus a pond or two. You cannot
+  walk into it — you stop at the bank and slide along it — but a leap clears the
+  narrow stretches, so the stream is terrain to route around rather than a wall.
+- **Every new day the meadow rearranges itself.** The grass moves, the stream
+  finds a new course and the spiders take new tufts, so yesterday's map is worth
+  nothing today. You are never buried by it: spiders keep clear of wherever you
+  are standing, and you are walked to safe dry ground if the new terrain lands
+  on top of you.
 - **Spiders** live inside four of the meadow's tufts, and they are the exception
   to all of the above: they hunt by touch, so hiding and keeping quiet is
   exactly what walks you into one. Look for glinting eyes and web strands before
@@ -75,12 +83,13 @@ ramp.
 
 | Path | Responsibility |
 | --- | --- |
-| `src/world.js` | Meadow bounds, the horizon, cover placement, hiding and jump targeting |
+| `src/world.js` | Meadow bounds, the horizon, cover and water placement, hiding and jump targeting |
 | `src/daylight.js` | The day/night clock: day number, darkness, whether it is night |
 | `src/cricket.js` | Player movement, singing and leaping |
 | `src/birds.js` | Predator state machine, shared by day birds and night bats |
 | `src/rivals.js` | Ants and beetles competing for the food |
 | `src/spiders.js` | Ambush predators that hold cover |
+| `src/water.js` | Streams and ponds, as overlapping circles |
 | `src/food.js` | Food spawning and eating |
 | `src/score.js` | Score, multiplier, fed meter, high score |
 | `src/attention.js` | Attention meter and its spawn thresholds |

@@ -348,6 +348,11 @@ export function createAudio() {
             tone({ frequency: 1500, sweepTo: 420, duration: 0.45, type: 'sawtooth', gain: 0.12 });
           }
           break;
+        case 'new-day':
+          // A soft rising pair to mark the meadow rearranging itself.
+          tone({ frequency: 330, sweepTo: 495, duration: 0.5, type: 'sine', gain: 0.07, attack: 0.12 });
+          tone({ frequency: 495, sweepTo: 660, duration: 0.7, type: 'sine', gain: 0.055, attack: 0.15, delay: 0.22 });
+          break;
         case 'spider-wake':
           // A dry tick from the grass: the only warning before the lunge.
           tone({ frequency: 900, sweepTo: 640, duration: 0.05, type: 'square', gain: 0.05 });

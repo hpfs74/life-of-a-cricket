@@ -1,4 +1,5 @@
 import { CONFIG } from './config.js';
+import { createWater, isWaterAt } from './water.js';
 
 const COVER_TYPES = ['grass', 'rock', 'leaf'];
 
@@ -21,7 +22,8 @@ export function createWorld(rng = Math.random) {
   } = CONFIG.world;
 
   const top = height * horizonFraction;
-  const world = { width, height, top, cover: [] };
+  const world = { width, height, top, water: [], cover: [] };
+  world.water = createWater({ width, height, top }, rng);
   const spawn = spawnPoint(world);
 
   let attempts = 0;
@@ -43,6 +45,9 @@ export function createWorld(rng = Math.random) {
 
     if (Math.hypot(spawn.x - x, spawn.y - y) < radius + spawnClearance) continue;
 
+    // Cover grows on dry ground.
+    if (isWaterAt(world.water, x, y, radius)) continue;
+
     const tooClose = world.cover.some(
       (item) => Math.hypot(item.x - x, item.y - y) < coverMinSeparation,
     );
@@ -60,6 +65,41 @@ export function clampToBounds(world, x, y, radius) {
     x: Math.min(Math.max(x, radius), world.width - radius),
     y: Math.min(Math.max(y, world.top + radius), world.height - radius),
   };
+}
+
+/** True when a body of the given radius would be standing in water. */
+export function isWater(world, x, y, margin = 0) {
+  return isWaterAt(world.water, x, y, margin);
+}
+
+/**
+ * Walks outward from a point until it finds somewhere a body of `radius` can
+ * legally stand: on the map, out of the water, and clear of anything `avoid`
+ * rejects. Used to rescue the cricket when the terrain changes underneath it.
+ */
+export function nearestDryPoint(world, x, y, radius, avoid = () => false) {
+  const start = clampToBounds(world, x, y, radius);
+  if (!isWater(world, start.x, start.y, radius) && !avoid(start.x, start.y)) return start;
+
+  for (let ring = 1; ring <= 26; ring += 1) {
+    const distance = ring * 26;
+    const steps = ring * 8;
+
+    for (let i = 0; i < steps; i += 1) {
+      const angle = (i / steps) * Math.PI * 2;
+      const candidate = clampToBounds(
+        world,
+        x + Math.cos(angle) * distance,
+        y + Math.sin(angle) * distance,
+        radius,
+      );
+      if (!isWater(world, candidate.x, candidate.y, radius) && !avoid(candidate.x, candidate.y)) {
+        return candidate;
+      }
+    }
+  }
+
+  return spawnPoint(world);
 }
 
 export function coverAt(world, x, y) {
@@ -129,6 +169,8 @@ export function randomOpenPoint(world, rng = Math.random, minDistanceFromCover =
       x: margin + rng() * (world.width - margin * 2),
       y: minY + rng() * (world.height - margin - minY),
     };
+
+    if (isWaterAt(world.water, candidate.x, candidate.y, minDistanceFromCover)) continue;
 
     const clear = world.cover.every(
       (item) => Math.hypot(item.x - candidate.x, item.y - candidate.y) > item.radius + minDistanceFromCover,

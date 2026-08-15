@@ -234,3 +234,89 @@ test('an airborne cricket is never reported as hidden, even over cover', () => {
   assert.equal(cricket.jumping, true);
   assert.equal(events.hidden, false, 'mid-air over cover still counts as exposed');
 });
+
+// A meadow split by a band of water down the middle.
+function streamWorld() {
+  return {
+    width: 800,
+    height: 600,
+    top: 0,
+    cover: [],
+    water: [
+      { x: 400, y: 200, radius: 40 },
+      { x: 400, y: 300, radius: 40 },
+      { x: 400, y: 400, radius: 40 },
+    ],
+  };
+}
+
+test('the cricket cannot walk into the water', () => {
+  const world = streamWorld();
+  const cricket = createCricket(world);
+  cricket.x = 300;
+  cricket.y = 300;
+
+  for (let i = 0; i < 200; i += 1) {
+    updateCricket(cricket, { dx: 1, dy: 0, sing: false, jump: false }, 1 / 60, world);
+  }
+
+  assert.ok(cricket.x < 400 - 40, `the cricket waded in to x=${cricket.x}`);
+});
+
+test('walking into a bank at an angle slides along it instead of sticking', () => {
+  const world = streamWorld();
+  const cricket = createCricket(world);
+  cricket.x = 340;
+  cricket.y = 300;
+
+  const startY = cricket.y;
+  for (let i = 0; i < 60; i += 1) {
+    updateCricket(cricket, { dx: 1, dy: 1, sing: false, jump: false }, 1 / 60, world);
+  }
+
+  assert.ok(cricket.y > startY + 20, 'the cricket should have slid down the bank');
+  assert.ok(cricket.x < 400, 'and still not be in the water');
+});
+
+test('a leap clears a narrow stretch and lands on dry ground', () => {
+  const world = { width: 800, height: 600, top: 0, cover: [], water: [{ x: 400, y: 300, radius: 25 }] };
+  const cricket = createCricket(world);
+  cricket.x = 340;
+  cricket.y = 300;
+  cricket.dirX = 1;
+  cricket.dirY = 0;
+
+  updateCricket(cricket, { dx: 1, dy: 0, sing: false, jump: true }, 1 / 60, world);
+  assert.equal(cricket.jumping, true);
+
+  for (let i = 0; i < 200 && cricket.jumping; i += 1) {
+    updateCricket(cricket, { dx: 1, dy: 0, sing: false, jump: true }, 1 / 60, world);
+  }
+
+  assert.ok(cricket.x > 425, `landed at ${cricket.x}, short of the far bank`);
+});
+
+test('a leap never lands the cricket in the water', () => {
+  const world = streamWorld();
+  const cricket = createCricket(world);
+
+  for (let attempt = 0; attempt < 40; attempt += 1) {
+    cricket.x = 330 + (attempt % 7) * 4;
+    cricket.y = 200 + (attempt % 5) * 50;
+    cricket.jumping = false;
+    cricket.jumpCooldown = 0;
+    cricket.jumpHeld = false;
+    cricket.dirX = 1;
+    cricket.dirY = 0;
+
+    updateCricket(cricket, { dx: 1, dy: 0, sing: false, jump: true }, 1 / 60, world);
+    for (let i = 0; i < 200 && cricket.jumping; i += 1) {
+      updateCricket(cricket, { dx: 1, dy: 0, sing: false, jump: true }, 1 / 60, world);
+    }
+
+    const wet = world.water.some(
+      (c) => Math.hypot(c.x - cricket.x, c.y - cricket.y) < c.radius + CONFIG.cricket.radius,
+    );
+    assert.equal(wet, false, `attempt ${attempt} landed in the water at ${cricket.x.toFixed(0)}`);
+  }
+});

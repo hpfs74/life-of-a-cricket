@@ -1,5 +1,5 @@
 import { CONFIG } from './config.js';
-import { createWorld } from './world.js';
+import { createWorld, isWater, nearestDryPoint } from './world.js';
 import { createCricket, updateCricket } from './cricket.js';
 import { createFoodField, updateFood, consumeFood } from './food.js';
 import { spawnBird, updateBird } from './birds.js';
@@ -35,6 +35,7 @@ export function createGame({ storage, rng = Math.random } = {}) {
     elapsed: 0,
     day: 1,
     night: false,
+    shiftedFor: 0,
     patrolTimer: 0,
     hidden: false,
     newRecord: false,
@@ -58,9 +59,42 @@ export function startRun(game) {
   game.elapsed = 0;
   game.day = 1;
   game.night = false;
+  game.shiftedFor = 0;
   game.patrolTimer = 0;
   game.hidden = false;
   game.newRecord = false;
+}
+
+/**
+ * Rebuilds the meadow when a new day turns over: the grass moves, the stream
+ * finds a new course and the spiders take new tufts.
+ *
+ * Nothing here is allowed to bury the cricket. Spiders keep clear of wherever
+ * it is standing, any leap in progress is cancelled so it cannot land somewhere
+ * that no longer exists, and the cricket itself is walked to the nearest safe
+ * dry ground if the new terrain arrived on top of it.
+ */
+function reshuffleMeadow(game, events) {
+  game.world = createWorld(game.rng);
+  game.spiders = createSpiders(game.world, game.rng, game.cricket);
+  game.rivals = createRivals(game.world, game.rng);
+
+  game.food.items = game.food.items.filter((item) => !isWater(game.world, item.x, item.y));
+
+  const inSpiderTuft = (x, y) =>
+    game.spiders.some((spider) => Math.hypot(spider.homeX - x, spider.homeY - y) <= spider.cover.radius);
+
+  const safe = nearestDryPoint(
+    game.world, game.cricket.x, game.cricket.y, CONFIG.cricket.radius, inSpiderTuft,
+  );
+  game.cricket.x = safe.x;
+  game.cricket.y = safe.y;
+
+  game.cricket.jumping = false;
+  game.cricket.jumpProgress = 0;
+
+  game.shiftedFor = CONFIG.game.shiftCaptionSeconds;
+  events.push({ type: 'new-day', day: game.day });
 }
 
 /**
@@ -88,8 +122,12 @@ export function updateGame(game, intent, dt) {
 
   const events = [];
   game.elapsed += dt;
-  game.day = dayAt(game.elapsed);
   game.night = isNight(game.elapsed);
+  game.shiftedFor = Math.max(0, game.shiftedFor - dt);
+
+  const previousDay = game.day;
+  game.day = dayAt(game.elapsed);
+  if (game.day !== previousDay) reshuffleMeadow(game, events);
 
   const cricketEvents = updateCricket(game.cricket, intent, dt, game.world);
   game.hidden = cricketEvents.hidden;

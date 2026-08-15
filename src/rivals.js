@@ -1,5 +1,5 @@
 import { CONFIG } from './config.js';
-import { clampToBounds, randomOpenPoint } from './world.js';
+import { clampToBounds, isWater, randomOpenPoint } from './world.js';
 
 const KINDS = ['ant', 'beetle'];
 
@@ -79,8 +79,14 @@ export function updateRivals(rivals, dt, world, food, rng = Math.random) {
         rival.y + rival.dirY * step,
         CONFIG.rivals.radius,
       );
-      rival.x = next.x;
-      rival.y = next.y;
+
+      if (isWater(world, next.x, next.y, CONFIG.rivals.radius)) {
+        // Blocked by the bank: give up on this errand and amble elsewhere.
+        wanderTarget(rival, world, rng);
+      } else {
+        rival.x = next.x;
+        rival.y = next.y;
+      }
     } else if (!best) {
       wanderTarget(rival, world, rng);
     }
