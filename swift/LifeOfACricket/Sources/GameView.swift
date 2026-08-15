@@ -60,15 +60,14 @@ struct GameView: View {
                     world.drawHouseCast(game: runner.game, time: time)
                 }
             }
-        }
 
-        // SCREEN-space proof: a mark in a corner, outside both layers above,
-        // so it never scales or scrolls with the playfield. Stands in until
-        // the HUD (Task 4) and touch controls (Task 7) draw real content here.
-        context.fill(
-            Path(ellipseIn: CGRect(x: size.width - 26, y: 10, width: 16, height: 16)),
-            with: .color(Palette.Hud.attentionMeter)
-        )
+            // The HUD and the menu/game-over overlays: still VIEW space, but
+            // outside the world translate, matching the order in `frame()`.
+            if runner.game.phase != .menu {
+                letterbox.drawHud(game: runner.game)
+            }
+            letterbox.drawOverlay(game: runner.game, time: time)
+        }
     }
 
     /// Alternates between the two ends of the world, holding each for

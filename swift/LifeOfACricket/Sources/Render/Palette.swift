@@ -136,6 +136,13 @@ enum Palette {
         static let shiftCaptionBase = Color(r: 190, g: 226, b: 255)
         static let multiplierText = Color(hex: 0xffe9a8)
 
+        // The menu's descriptive lines and the game-over panel's "Best" line
+        // use two distinct whites-with-alpha the JS bakes as literals
+        // (`rgba(255,255,255,0.85)` and `rgba(255,255,255,0.75)`) — kept apart
+        // from `secondaryText`'s 0.7, which is a third, separate literal.
+        static let bodyText = Color(r: 255, g: 255, b: 255, a: 0.85)
+        static let bestText = Color(r: 255, g: 255, b: 255, a: 0.75)
+
         static let panelBackground = Color(r: 8, g: 12, b: 18, a: 0.72)
         static let creditLabel = Color(r: 255, g: 255, b: 255, a: 0.55)
         static let creditName = Color(hex: 0xffe9a8)
