@@ -627,3 +627,191 @@ test('a grub is never spawned by the meadow itself', () => {
     }
   }
 });
+
+/** Walks the cricket east until it reaches the meadow doorway and goes inside. */
+function walkIntoTheHouse(game, maxFrames = 60 * 60) {
+  for (let i = 0; i < maxFrames; i += 1) {
+    game.cricket.y = game.world.door.y;
+    const events = updateGame(game, { dx: 1, dy: 0, sing: false, jump: false, strike: false }, 1 / 60);
+    if (events.some((e) => e.type === 'stage-change')) return true;
+    if (game.phase !== 'PLAYING') { startRun(game); }
+  }
+  return false;
+}
+
+test('a run starts outdoors', () => {
+  const game = newGame();
+  assert.equal(game.stage, 'meadow');
+  assert.equal(game.world.kind, 'meadow');
+});
+
+test('walking into the doorway takes the cricket into the house', () => {
+  const game = createGame({ storage: memoryStorage(), rng: seededRng(15) });
+  startRun(game);
+
+  assert.ok(walkIntoTheHouse(game), 'never reached the doorway');
+  assert.equal(game.stage, 'house');
+  assert.equal(game.world.kind, 'house');
+  assert.equal(game.world.bands.length, 2);
+});
+
+test('score, lives and the day survive the move indoors', () => {
+  const game = createGame({ storage: memoryStorage(), rng: seededRng(15) });
+  startRun(game);
+  game.score.points = 777;
+  game.lives = 2;
+  game.elapsed = CONFIG.game.secondsPerDay * 2 + 1;
+  game.day = dayAt(game.elapsed);
+
+  walkIntoTheHouse(game);
+
+  assert.equal(Math.floor(game.score.points), 777);
+  assert.equal(game.lives, 2);
+  assert.equal(game.day, 3);
+});
+
+test('nothing follows the cricket indoors, and the house gets its own residents', () => {
+  const game = createGame({ storage: memoryStorage(), rng: seededRng(15) });
+  startRun(game);
+  game.birds = [diveOnCricket(game)];
+
+  walkIntoTheHouse(game);
+
+  assert.equal(game.birds.length, 0, 'a bird came through the door');
+  assert.ok(game.spiders.length > 0, 'the house should have its own spiders');
+  assert.ok(game.rivals.length > 0, 'the house should have its own bugs');
+});
+
+test('birds and bats never appear indoors, however loud the cricket is', () => {
+  const game = createGame({ storage: memoryStorage(), rng: seededRng(15) });
+  startRun(game);
+  walkIntoTheHouse(game);
+  assert.equal(game.stage, 'house');
+
+  for (let i = 0; i < 90 * 60; i += 1) {
+    updateGame(game, singing, 1 / 60);
+    assert.equal(game.birds.length, 0, 'something flew in from outside');
+    if (game.phase !== 'PLAYING') break;
+  }
+});
+
+test('the house does not rearrange itself when a new day breaks', () => {
+  const game = createGame({ storage: memoryStorage(), rng: seededRng(15) });
+  startRun(game);
+  walkIntoTheHouse(game);
+
+  const furniture = game.world.cover.map((c) => `${c.x.toFixed(1)},${c.y.toFixed(1)}`).join('|');
+  game.elapsed = CONFIG.game.secondsPerDay * Math.ceil(game.elapsed / CONFIG.game.secondsPerDay) - 1 / 120;
+
+  let announced = false;
+  for (let i = 0; i < 240; i += 1) {
+    if (updateGame(game, still, 1 / 60).some((e) => e.type === 'new-day')) announced = true;
+  }
+
+  assert.ok(game.day >= 2, 'the day should still turn over indoors');
+  assert.equal(announced, false, 'the furniture should not have been rearranged');
+  assert.equal(
+    game.world.cover.map((c) => `${c.x.toFixed(1)},${c.y.toFixed(1)}`).join('|'),
+    furniture,
+  );
+});
+
+test('the doorway does not bounce the cricket straight back out', () => {
+  const game = createGame({ storage: memoryStorage(), rng: seededRng(15) });
+  startRun(game);
+  walkIntoTheHouse(game);
+
+  assert.ok(game.stageCooldown > 0, 'arriving should start a grace period');
+
+  // Stand still on arrival: it must not immediately re-trigger.
+  for (let i = 0; i < 30; i += 1) {
+    const events = updateGame(game, still, 1 / 60);
+    assert.ok(!events.some((e) => e.type === 'stage-change'), `bounced on frame ${i}`);
+  }
+  assert.equal(game.stage, 'house');
+});
+
+test('the cricket can walk back out to the meadow', () => {
+  const game = createGame({ storage: memoryStorage(), rng: seededRng(15) });
+  startRun(game);
+  walkIntoTheHouse(game);
+
+  let left = false;
+  for (let i = 0; i < 60 * 60 && !left; i += 1) {
+    game.cricket.y = game.world.door.y;
+    left = updateGame(game, { dx: -1, dy: 0, sing: false, jump: false, strike: false }, 1 / 60)
+      .some((e) => e.type === 'stage-change');
+    if (game.phase !== 'PLAYING') startRun(game);
+  }
+
+  assert.ok(left, 'never found the way out');
+  assert.equal(game.stage, 'meadow');
+  assert.equal(game.world.kind, 'meadow');
+});
+
+test('the house comes with a cat and a human, and the meadow with neither', () => {
+  const game = createGame({ storage: memoryStorage(), rng: seededRng(15) });
+  startRun(game);
+  assert.equal(game.cat, null);
+  assert.equal(game.humans, null);
+
+  walkIntoTheHouse(game);
+  assert.ok(game.cat, 'the house should have a cat');
+  assert.ok(game.humans, 'and someone living in it');
+});
+
+test('the cat catches a cricket that sings in the open indoors', () => {
+  const game = createGame({ storage: memoryStorage(), rng: seededRng(15) });
+  startRun(game);
+  walkIntoTheHouse(game);
+
+  const before = game.lives;
+  let caught = false;
+
+  for (let i = 0; i < 120 * 60 && !caught; i += 1) {
+    caught = updateGame(game, singing, 1 / 60).some((e) => e.type === 'hit' && e.from === 'cat');
+    if (game.phase !== 'PLAYING') break;
+  }
+
+  assert.ok(caught, 'singing in the open indoors should eventually be punished');
+  assert.ok(game.lives < before);
+});
+
+test('the human crushes and the cat pounces without ever being a bird', () => {
+  const game = createGame({ storage: memoryStorage(), rng: seededRng(15) });
+  startRun(game);
+  walkIntoTheHouse(game);
+
+  const seen = new Set();
+  for (let i = 0; i < 200 * 60; i += 1) {
+    // Keep the cricket alive so the run stays indoors for the whole sample;
+    // restarting would take it back out to the meadow and let birds in.
+    game.lives = CONFIG.game.startingLives;
+    for (const e of updateGame(game, singing, 1 / 60)) seen.add(e.type);
+    assert.equal(game.stage, 'house', `left the house on frame ${i}`);
+  }
+
+  assert.ok(seen.has('human-approaching'), 'nobody ever walked through');
+  assert.ok(seen.has('footfall'), 'no footfalls landed');
+  assert.ok(seen.has('cat-noticed'), 'the cat never noticed anything');
+  assert.ok(!seen.has('bird-spawn'), 'a bird got indoors');
+});
+
+test('leaving the house leaves the cat and the human behind', () => {
+  const game = createGame({ storage: memoryStorage(), rng: seededRng(15) });
+  startRun(game);
+  walkIntoTheHouse(game);
+  assert.ok(game.cat);
+
+  for (let i = 0; i < 60 * 60; i += 1) {
+    game.cricket.y = game.world.door.y;
+    const left = updateGame(game, { dx: -1, dy: 0, sing: false, jump: false, strike: false }, 1 / 60)
+      .some((e) => e.type === 'stage-change');
+    if (left) break;
+    if (game.phase !== 'PLAYING') startRun(game);
+  }
+
+  assert.equal(game.stage, 'meadow');
+  assert.equal(game.cat, null, 'the cat should not follow you outside');
+  assert.equal(game.humans, null);
+});

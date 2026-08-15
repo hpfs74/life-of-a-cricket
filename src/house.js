@@ -71,7 +71,12 @@ export function createHouse(rng = Math.random) {
   const stairX = width * (0.58 + rng() * 0.24);
   const stairs = [{ x: stairX, width: stairWidth }];
 
-  const door = { x: doorWidth, y: downstairs.bottom - CONFIG.doorway.height / 2, width: doorWidth };
+  const door = {
+    x: doorWidth,
+    y: (downstairs.top + downstairs.bottom) / 2,
+    width: doorWidth,
+    height: CONFIG.doorway.height,
+  };
 
   const world = {
     kind: 'house',
@@ -117,5 +122,6 @@ export function houseEntry(world) {
 /** True when the cricket is standing in the doorway, on its way back out. */
 export function atFrontDoor(world, x, y) {
   const downstairs = world.bands[world.bands.length - 1];
-  return x <= world.door.x + CONFIG.house.doorWidth / 2 && y >= downstairs.top && y <= downstairs.bottom;
+  if (y < downstairs.top || y > downstairs.bottom) return false;
+  return x <= world.door.x + world.door.width / 2;
 }

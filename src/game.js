@@ -1,5 +1,8 @@
 import { CONFIG } from './config.js';
-import { clampToBounds, createWorld, isWater, nearestDryPoint } from './world.js';
+import { atDoorway, clampToBounds, createWorld, isWater, nearestDryPoint, spawnPoint } from './world.js';
+import { createHouse, houseEntry } from './house.js';
+import { createCat, updateCat } from './cat.js';
+import { createHumanSchedule, updateHuman } from './human.js';
 import { createCricket, updateCricket } from './cricket.js';
 import { createFoodField, updateFood, consumeFood, dropFood } from './food.js';
 import { spawnBird, updateBird } from './birds.js';
@@ -35,6 +38,11 @@ export function createGame({ storage, rng = Math.random } = {}) {
     elapsed: 0,
     day: 1,
     night: false,
+    stage: 'meadow',
+    stageCooldown: 0,
+    // Indoor residents. Both are null outdoors.
+    cat: null,
+    humans: null,
     shiftedFor: 0,
     rivalRespawnTimer: 0,
     patrolTimer: 0,
@@ -60,11 +68,48 @@ export function startRun(game) {
   game.elapsed = 0;
   game.day = 1;
   game.night = false;
+  game.stage = 'meadow';
+  game.stageCooldown = 0;
+  game.cat = null;
+  game.humans = null;
   game.shiftedFor = 0;
   game.rivalRespawnTimer = 0;
   game.patrolTimer = 0;
   game.hidden = false;
   game.newRecord = false;
+}
+
+/**
+ * Moves the cricket into a new world, taking its inhabitants with it.
+ *
+ * Score, lives and the day carry across untouched: going indoors is a change of
+ * scene in one cricket's life, not a new run.
+ */
+function changeStage(game, stage, world, arrival, events) {
+  game.stage = stage;
+  game.world = world;
+  game.stageCooldown = CONFIG.game.stageCooldownSeconds;
+
+  game.cricket.x = arrival.x;
+  game.cricket.y = arrival.y;
+  game.cricket.jumping = false;
+  game.cricket.jumpProgress = 0;
+  game.cricket.stunnedFor = 0;
+
+  // Nothing follows the cricket through a doorway.
+  game.birds = [];
+  game.spiders = createSpiders(world, game.rng, game.cricket);
+  game.rivals = createRivals(world, game.rng);
+  game.food = createFoodField();
+  game.patrolTimer = 0;
+  game.rivalRespawnTimer = 0;
+
+  // The house has its own cast; the meadow has none of it.
+  const indoors = stage === 'house';
+  game.cat = indoors ? createCat(world, game.rng) : null;
+  game.humans = indoors ? createHumanSchedule(game.rng) : null;
+
+  events.push({ type: 'stage-change', stage });
 }
 
 /**
@@ -180,9 +225,12 @@ export function updateGame(game, intent, dt) {
   game.night = isNight(game.elapsed);
   game.shiftedFor = Math.max(0, game.shiftedFor - dt);
 
+  game.stageCooldown = Math.max(0, game.stageCooldown - dt);
+
   const previousDay = game.day;
   game.day = dayAt(game.elapsed);
-  if (game.day !== previousDay) reshuffleMeadow(game, events);
+  // Houses do not rearrange themselves overnight; meadows do.
+  if (game.day !== previousDay && game.stage === 'meadow') reshuffleMeadow(game, events);
 
   const cricketEvents = updateCricket(game.cricket, intent, dt, game.world);
   game.hidden = cricketEvents.hidden;
@@ -214,10 +262,12 @@ export function updateGame(game, intent, dt) {
     patrols += 1;
   }
 
-  // Birds hunt the meadow by day; bats take the night shift.
+  // Birds hunt the meadow by day; bats take the night shift. Neither comes
+  // indoors — the house has its own cast.
   const kind = game.night ? 'bat' : 'bird';
+  const aerialHunting = game.stage === 'meadow';
 
-  for (let i = 0; i < spawned + patrols; i += 1) {
+  for (let i = 0; aerialHunting && i < spawned + patrols; i += 1) {
     if (game.birds.length >= CONFIG.bird.maxAlive) break;
     const bird = spawnBird(game.world, game.rng, difficulty, kind, game.cricket);
     game.birds.push(bird);
@@ -246,6 +296,27 @@ export function updateGame(game, intent, dt) {
     game.rivals.push(spawnRival(game.world, game.rng, game.rivals.length));
   }
 
+  // A doorway moves the cricket between the meadow and the house.
+  if (game.stageCooldown <= 0 && atDoorway(game.world, game.cricket.x, game.cricket.y)) {
+    if (game.stage === 'meadow') {
+      const house = createHouse(game.rng);
+      changeStage(game, 'house', house, houseEntry(house), events);
+    } else {
+      const meadow = createWorld(game.rng);
+      const spawn = spawnPoint(meadow);
+      // Step back out onto the meadow just short of the door.
+      const arrival = clampToBounds(
+        meadow,
+        meadow.door.x - CONFIG.doorway.width * 1.6,
+        meadow.door.y,
+        CONFIG.cricket.radius,
+      );
+      changeStage(game, 'meadow', meadow, isWater(meadow, arrival.x, arrival.y, CONFIG.cricket.radius)
+        ? spawn
+        : arrival, events);
+    }
+  }
+
   // Spiders hunt from inside cover, so they are checked wherever the cricket is.
   for (const event of updateSpiders(game.spiders, dt, game.world, game.cricket)) {
     if (event.type === 'spider-hit') takeHit(game, events, { spider: event.spider, from: 'spider' });
@@ -259,6 +330,21 @@ export function updateGame(game, intent, dt) {
     singing: game.cricket.singing,
     airborne: game.cricket.jumping,
   };
+
+  // Indoors, the cat hunts and the human blunders through.
+  if (game.cat) {
+    const catEvent = updateCat(game.cat, dt, context, game.rng);
+
+    if (catEvent === 'hit') takeHit(game, events, { cat: game.cat, from: 'cat' });
+    else if (catEvent !== 'none') events.push({ type: `cat-${catEvent}`, cat: game.cat });
+  }
+
+  if (game.humans) {
+    for (const event of updateHuman(game.humans, dt, context, game.rng)) {
+      if (event.type === 'human-crush') takeHit(game, events, { from: 'human' });
+      else events.push(event);
+    }
+  }
 
   const survivors = [];
 

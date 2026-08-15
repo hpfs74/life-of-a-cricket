@@ -123,6 +123,39 @@ export const CONFIG = {
     pondRadiusRange: [34, 64],
   },
 
+  // The house cat. It hunts, unlike the human, and it can take the stairs.
+  cat: {
+    prowlSpeed: 92,
+    stalkSpeed: 150,
+    pounceSpeed: 540,
+    pounceSeconds: 0.34,
+    hitRadius: 30,
+    // How far it can notice an exposed cricket, and how much further a singing
+    // one carries. Cover breaks its interest entirely.
+    noticeRadius: 300,
+    singingBonus: 260,
+    // It must hold the cricket in view this long before committing.
+    stalkSeconds: 1.5,
+    recoverSeconds: 1.8,
+    // Losing the trail, it mooches about before settling back to a prowl.
+    confusedSeconds: 2.2,
+    // How close to the stairwell centre counts as being on the stairs.
+    stairTolerance: 26,
+  },
+
+  // The human: enormous, oblivious, and lethal to anything in the open.
+  human: {
+    // A floor is crossed this often, give or take.
+    everySeconds: [9, 18],
+    walkSpeed: 210,
+    // The shadow that arrives before the feet do.
+    warningSeconds: 1.3,
+    // Anything within this of a footfall, and not behind furniture, is crushed.
+    crushRadius: 46,
+    // Distance between footfalls.
+    strideLength: 165,
+  },
+
   // Spiders live inside cover. They are the exception to the game's core rule:
   // hiding and keeping quiet beats anything with wings, but not one of these.
   spiders: {
@@ -198,6 +231,9 @@ export const CONFIG = {
     secondsPerDay: 30,
     // How long the "the meadow has shifted" caption stays up after a new day.
     shiftCaptionSeconds: 3.5,
+    // A grace period after moving between stages, so arriving in a doorway
+    // cannot bounce the cricket straight back where it came from.
+    stageCooldownSeconds: 1.2,
     // Birds patrol on their own schedule too, so staying silent is quieter,
     // never safe. Scaled down by difficulty as the run goes on.
     patrolIntervalSeconds: 13,

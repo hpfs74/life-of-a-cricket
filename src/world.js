@@ -15,6 +15,21 @@ const COVER_TYPES = ['grass', 'rock', 'leaf'];
  * occupy disjoint y ranges, furniture upstairs cannot hide anything downstairs.
  */
 
+/**
+ * True when the cricket is standing in a doorway — the east door of the meadow,
+ * or the front door of a house. Either one moves it between stages.
+ */
+export function atDoorway(world, x, y) {
+  const door = world.door;
+  if (!door) return false;
+
+  const withinX = world.kind === 'house'
+    ? x <= door.x + door.width / 2
+    : x >= door.x - door.width / 2;
+
+  return withinX && Math.abs(y - door.y) <= door.height / 2;
+}
+
 /** True when this x sits inside a stairwell, where the bands join up. */
 export function inStairwell(world, x) {
   return (world.stairs ?? []).some((stair) => x >= stair.x && x <= stair.x + stair.width);
@@ -67,6 +82,13 @@ export function createWorld(rng = Math.random) {
     // One band of ground, and no stairs: the meadow is a one-floor world.
     bands: [{ top, bottom: height }],
     stairs: [],
+    // The house stands at the east end. Walk into the doorway to go inside.
+    door: {
+      x: width - CONFIG.doorway.width / 2,
+      y: top + (height - top) * 0.62,
+      width: CONFIG.doorway.width,
+      height: CONFIG.doorway.height,
+    },
     water: [], cover: [],
   };
   world.water = createWater({ width, height, top }, rng);
@@ -90,6 +112,9 @@ export function createWorld(rng = Math.random) {
     const y = minY + rng() * (maxY - minY);
 
     if (Math.hypot(spawn.x - x, spawn.y - y) < radius + spawnClearance) continue;
+
+    // Leave the doorway approach clear, so the way indoors is never walled off.
+    if (Math.hypot(world.door.x - x, world.door.y - y) < radius + CONFIG.doorway.width * 2) continue;
 
     // Cover grows on dry ground.
     if (isWaterAt(world.water, x, y, radius)) continue;
