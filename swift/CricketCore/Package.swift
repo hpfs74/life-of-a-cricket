@@ -9,6 +9,10 @@ let package = Package(
     ],
     targets: [
         .target(name: "CricketCore"),
-        .testTarget(name: "CricketCoreTests", dependencies: ["CricketCore"]),
+        .testTarget(
+            name: "CricketCoreTests",
+            dependencies: ["CricketCore"],
+            resources: [.process("Fixtures")]
+        ),
     ]
 )
