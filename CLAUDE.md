@@ -71,6 +71,33 @@ Nothing under `src/render/` has tests — that layer is deliberately thin and st
 
 Every push to `main` runs the suite, then publishes to `https://theteresa.com/life-of-a-cricket` via OIDC (no stored AWS keys). A red suite never reaches the site. The sync deliberately omits `--delete` and the IAM role has no delete permission, because the bucket also serves the rest of `theteresa.com`.
 
+## The Swift port (`swift/`)
+
+A native iOS port lives in `swift/`, additive and independent — the deploy workflow's explicit `--include` list means it can never reach the website.
+
+```bash
+# Simulation tests. DEVELOPER_DIR is REQUIRED — xcode-select points at
+# CommandLineTools, whose toolchain has no bundled `Testing` framework, so
+# plain `swift test` fails with "no such module 'Testing'". Do not run
+# `sudo xcode-select`; set it per-invocation instead.
+cd swift/CricketCore && DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer swift test
+
+# Build the app (placeholder screen until the render layer lands)
+export DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer
+xcodebuild -project swift/LifeOfACricket/LifeOfACricket.xcodeproj \
+  -scheme LifeOfACricket -destination 'platform=iOS Simulator,name=iPhone 17 Pro' build
+```
+
+Structure mirrors the JS separation: `swift/CricketCore/` is a SwiftPM package holding the whole simulation and importing **only** the standard library plus platform libm (`import Darwin`/`Glibc` behind a `canImport` shim — the stdlib has no `sin`/`cos`). `swift/LifeOfACricket/` is the iOS app. That boundary is why `swift test` runs in seconds without a simulator.
+
+The `.xcodeproj` uses a `PBXFileSystemSynchronizedRootGroup`, so adding Swift files needs no project-file edits.
+
+**Two cross-language checks guard the port, and both compare against the running JavaScript:**
+- `WorldGoldenTests` — Swift and JS generate identical meadows for a shared seed.
+- `DifferentialTraceTests` — `Game` is replayed frame by frame against `src/game.js` over four scenarios (singing, silent, combat, house round trip).
+
+Both read fixtures under `Tests/CricketCoreTests/Fixtures/`. **Regenerate them from the JS with `swift/tools/dump-*.mjs`; never hand-edit them.** If one fails, the Swift has drifted — fix the Swift.
+
 ## Docs
 
 `docs/superpowers/specs/` holds the approved design (including the design pillars the mechanics answer to); `docs/superpowers/plans/` holds the implementation plan. The README documents gameplay rules and the per-file responsibility table — consult it before inferring what a module does.
