@@ -12,13 +12,13 @@ import Testing
         .bugKilled(kind: .beetle, drops: 2), .stunned(kind: .beetle),
         .ate(item), .rivalAte(item),
         .birdSpawn(kind: .bird), .birdCry(kind: .bat),
-        .spiderWake(index: 0), .spiderLunge(index: 0),
+        .spiderWake(index: 0), .spiderLunge(index: 0), .spiderMiss(index: 0),
         .catNoticed, .catLost, .catPounced,
         .humanApproaching, .footfall(x: 1, y: 2), .humanGone,
         .newDay(day: 2), .stageChange(stage: .house),
         .hit(from: .spider), .gameOver,
     ]
-    #expect(events.count == 24)
+    #expect(events.count == 25)
 }
 
 @Test func eventsCompareByValue() {

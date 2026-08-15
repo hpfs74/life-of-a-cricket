@@ -34,6 +34,13 @@ public enum GameEvent: Equatable, Sendable {
     case birdCry(kind: BirdKind)
     case spiderWake(index: Int)
     case spiderLunge(index: Int)
+    /// A lunge that misses. `src/spiders.js` emits this (as `spider-miss`)
+    /// whenever a lunge resolves without connecting, but `src/audio.js` has
+    /// no case for it — the JS reference plays no sound for a miss today.
+    /// That is a deliberate silence in the current presentation, not an
+    /// absent event: the case exists here so a future audio layer can give
+    /// it a sound without also having to teach the simulation to emit it.
+    case spiderMiss(index: Int)
     case catNoticed
     case catLost
     case catPounced
