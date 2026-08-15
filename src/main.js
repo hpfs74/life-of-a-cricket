@@ -1,11 +1,22 @@
 import { CONFIG } from './config.js';
+import { createGame, startRun, updateGame } from './game.js';
+import { createInput } from './input.js';
+import { createAudio } from './audio.js';
+import { drawBackground } from './render/background.js';
+import { drawEntities } from './render/entities.js';
+import { drawHud, drawOverlay } from './render/hud.js';
 
 const canvas = document.getElementById('stage');
 const ctx = canvas.getContext('2d');
 
-// The simulation always runs in CONFIG.world units. The canvas is sized to the
-// device, and this transform letterboxes the world into it, so gameplay is
-// identical at every screen size.
+const game = createGame({ storage: window.localStorage, rng: Math.random });
+const input = createInput(window);
+const audio = createAudio();
+
+input.attach();
+
+// The simulation always runs in CONFIG.world units; this transform letterboxes
+// that fixed world into whatever canvas the device gives us.
 const view = { scale: 1, offsetX: 0, offsetY: 0 };
 
 function resize() {
@@ -15,34 +26,102 @@ function resize() {
 
   canvas.width = Math.floor(cssWidth * dpr);
   canvas.height = Math.floor(cssHeight * dpr);
+  canvas.style.width = `${cssWidth}px`;
+  canvas.style.height = `${cssHeight}px`;
 
   const scale = Math.min(cssWidth / CONFIG.world.width, cssHeight / CONFIG.world.height);
   view.scale = scale;
   view.offsetX = (cssWidth - CONFIG.world.width * scale) / 2;
   view.offsetY = (cssHeight - CONFIG.world.height * scale) / 2;
-
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 }
 
 window.addEventListener('resize', resize);
 resize();
+
+// Touch: dragging anywhere steers, and holding still sings, so the game is
+// playable on a phone without a keyboard.
+let touchOrigin = null;
+
+function touchIntent(touch) {
+  const dx = touch.clientX - touchOrigin.x;
+  const dy = touch.clientY - touchOrigin.y;
+  const distance = Math.hypot(dx, dy);
+
+  if (distance < 14) {
+    input.intent.dx = 0;
+    input.intent.dy = 0;
+    input.intent.sing = true;
+    return;
+  }
+
+  input.intent.sing = false;
+  input.intent.dx = dx / distance;
+  input.intent.dy = dy / distance;
+}
+
+canvas.addEventListener('touchstart', (event) => {
+  event.preventDefault();
+  audio.unlock();
+
+  if (game.phase !== 'PLAYING') {
+    startRun(game);
+    return;
+  }
+
+  const touch = event.touches[0];
+  touchOrigin = { x: touch.clientX, y: touch.clientY };
+  touchIntent(touch);
+}, { passive: false });
+
+canvas.addEventListener('touchmove', (event) => {
+  event.preventDefault();
+  if (touchOrigin) touchIntent(event.touches[0]);
+}, { passive: false });
+
+canvas.addEventListener('touchend', (event) => {
+  event.preventDefault();
+  touchOrigin = null;
+  input.intent.dx = 0;
+  input.intent.dy = 0;
+  input.intent.sing = false;
+}, { passive: false });
+
+window.addEventListener('keydown', () => audio.unlock(), { once: true });
 
 let lastTime = performance.now();
 
 function frame(now) {
   const dt = Math.min((now - lastTime) / 1000, CONFIG.game.maxFrameDelta);
   lastTime = now;
+  const time = now / 1000;
 
-  ctx.setTransform(window.devicePixelRatio || 1, 0, 0, window.devicePixelRatio || 1, 0, 0);
-  ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
+  if (input.consumeStartRequest() && game.phase !== 'PLAYING') {
+    startRun(game);
+    // Swallow the keypress so the same press does not start a song immediately.
+    input.intent.sing = false;
+  }
+
+  for (const event of updateGame(game, input.intent, dt)) {
+    audio.play(event.type);
+  }
+
+  audio.setSinging(game.phase === 'PLAYING' && game.cricket.singing, game.score.multiplier);
+
+  const dpr = window.devicePixelRatio || 1;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.fillStyle = '#10141c';
+  ctx.fillRect(0, 0, window.innerWidth, window.innerHeight);
 
   ctx.save();
   ctx.translate(view.offsetX, view.offsetY);
   ctx.scale(view.scale, view.scale);
 
-  // Placeholder until the background renderer lands.
-  ctx.fillStyle = '#2b3a2f';
-  ctx.fillRect(0, 0, CONFIG.world.width, CONFIG.world.height);
+  drawBackground(ctx, game, time);
+  if (game.phase !== 'MENU') {
+    drawEntities(ctx, game, time);
+    drawHud(ctx, game);
+  }
+  drawOverlay(ctx, game);
 
   ctx.restore();
 
@@ -50,7 +129,3 @@ function frame(now) {
 }
 
 requestAnimationFrame(frame);
-
-// `dt` is computed and clamped every frame even though nothing consumes it yet;
-// the simulation gets wired in here once the modules exist.
-export { view };

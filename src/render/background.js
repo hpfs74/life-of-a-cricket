@@ -69,8 +69,7 @@ function drawCover(ctx, item, time) {
 }
 
 export function drawBackground(ctx, game, time) {
-  const { width, height } = game.world;
-  const horizon = height * 0.28;
+  const { width, height, top: horizon } = game.world;
   const sky = skyStops(game.elapsed);
 
   const gradient = ctx.createLinearGradient(0, 0, 0, horizon);
@@ -85,16 +84,28 @@ export function drawBackground(ctx, game, time) {
   ctx.fillStyle = ground;
   ctx.fillRect(0, horizon, width, height - horizon);
 
-  // A pale far layer of grass along the horizon reads as depth.
-  ctx.strokeStyle = 'rgba(126, 156, 96, 0.55)';
-  ctx.lineWidth = 3;
+  // Two pale layers of grass along the horizon read as depth. Blade height and
+  // lean are hashed off x so the fringe looks grown rather than combed.
   ctx.lineCap = 'round';
-  for (let x = -10; x < width + 10; x += 13) {
-    const bladeSway = Math.sin(time * 1.1 + x * 0.05) * 5;
-    ctx.beginPath();
-    ctx.moveTo(x, horizon + 12);
-    ctx.quadraticCurveTo(x + bladeSway * 0.5, horizon - 8, x + bladeSway, horizon - 22);
-    ctx.stroke();
+
+  for (const layer of [
+    { color: 'rgba(104, 132, 82, 0.5)', step: 7, lineWidth: 3, scale: 0.7, lift: 4 },
+    { color: 'rgba(138, 170, 104, 0.62)', step: 9, lineWidth: 4, scale: 1, lift: 12 },
+  ]) {
+    ctx.strokeStyle = layer.color;
+    ctx.lineWidth = layer.lineWidth;
+
+    for (let x = -12; x < width + 12; x += layer.step) {
+      const hash = Math.sin(x * 12.9898) * 43758.5453;
+      const jitter = hash - Math.floor(hash);
+      const height = (14 + jitter * 26) * layer.scale;
+      const lean = (jitter - 0.5) * 14 + Math.sin(time * 1.1 + x * 0.05) * 4;
+
+      ctx.beginPath();
+      ctx.moveTo(x, horizon + layer.lift);
+      ctx.quadraticCurveTo(x + lean * 0.4, horizon - height * 0.5, x + lean, horizon - height);
+      ctx.stroke();
+    }
   }
 
   for (const item of game.world.cover) drawCover(ctx, item, time);

@@ -1,10 +1,12 @@
 import { CONFIG } from './config.js';
-import { clampToBounds, isHidden } from './world.js';
+import { clampToBounds, isHidden, spawnPoint } from './world.js';
 
 export function createCricket(world) {
+  const spawn = spawnPoint(world);
+
   return {
-    x: world.width / 2,
-    y: world.height / 2,
+    x: spawn.x,
+    y: spawn.y,
     dirX: 1,
     dirY: 0,
     moving: false,

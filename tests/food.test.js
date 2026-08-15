@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { CONFIG } from '../src/config.js';
 import { createFoodField, updateFood, consumeFood, FOOD_TYPE_NAMES } from '../src/food.js';
 
-const world = { width: 800, height: 600, cover: [] };
+const world = { width: 800, height: 600, top: 0, cover: [] };
 const rng = () => 0.5;
 
 test('a new field is empty', () => {

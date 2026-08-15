@@ -2,6 +2,9 @@ export const CONFIG = {
   world: {
     width: 960,
     height: 600,
+    // Everything above this fraction of the height is sky. The ground below it
+    // is the playable field: the cricket, cover and food all stay inside it.
+    horizonFraction: 0.28,
     edgeMargin: 24,
     coverCount: 9,
     coverMinRadius: 34,

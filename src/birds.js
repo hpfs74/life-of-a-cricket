@@ -29,7 +29,8 @@ export function spawnBird(world, rng = Math.random, difficulty = 1) {
     targetY: 0,
     speedScale: difficulty,
     centerX: world.width / 2,
-    centerY: world.height / 2,
+    // Birds orbit over the playable ground, not over the empty sky band.
+    centerY: world.top + (world.height - world.top) / 2,
     exitX: start.x,
     exitY: start.y,
   };

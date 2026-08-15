@@ -3,12 +3,14 @@ import assert from 'node:assert/strict';
 import { CONFIG } from '../src/config.js';
 import { createCricket, updateCricket } from '../src/cricket.js';
 
-const openWorld = { width: 800, height: 600, cover: [] };
+const openWorld = { width: 800, height: 600, top: 0, cover: [] };
 const coveredWorld = {
   width: 800,
   height: 600,
+  top: 0,
   cover: [{ x: 100, y: 100, radius: 50, type: 'grass' }],
 };
+const skyWorld = { width: 800, height: 600, top: 168, cover: [] };
 
 const still = { dx: 0, dy: 0, sing: false };
 
@@ -41,6 +43,16 @@ test('the cricket cannot leave the meadow', () => {
   }
   assert.equal(cricket.x, CONFIG.cricket.radius);
   assert.equal(cricket.y, CONFIG.cricket.radius);
+});
+
+test('the cricket cannot walk up into the sky', () => {
+  const cricket = createCricket(skyWorld);
+  assert.ok(cricket.y > skyWorld.top, 'spawned above the horizon');
+
+  for (let i = 0; i < 200; i += 1) {
+    updateCricket(cricket, { dx: 0, dy: -1, sing: false }, 0.1, skyWorld);
+  }
+  assert.equal(cricket.y, skyWorld.top + CONFIG.cricket.radius);
 });
 
 test('singing requires standing still and blocks movement', () => {
