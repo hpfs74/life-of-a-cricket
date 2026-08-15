@@ -58,6 +58,12 @@ public struct FoodItem: Equatable, Identifiable, Sendable {
     }
 }
 
+// Positional literal from src/food.js:51 (`spec.radius + 12`), not a gameplay
+// tunable: the extra gap a spawn point keeps beyond the item's own radius, so
+// food never lands close enough to cover to be reached without stepping out
+// into the open.
+private let spawnClearanceBeyondRadius = 12.0
+
 /// The food scattered across the meadow: ages existing items, spawns new ones
 /// up to a cap, and lets the cricket eat what has settled.
 public struct FoodField: Sendable {
@@ -95,7 +101,10 @@ public struct FoodField: Sendable {
 
             let natural = FoodType.natural
             let type = natural[Int(rng.next() * Double(natural.count)) % natural.count]
-            let point = world.randomOpenPoint(rng: rng, minDistanceFromCover: type.radius + 12)
+            let point = world.randomOpenPoint(
+                rng: rng,
+                minDistanceFromCover: type.radius + spawnClearanceBeyondRadius
+            )
 
             items.append(FoodItem(id: makeID(), type: type, x: point.x, y: point.y))
         }
