@@ -145,39 +145,55 @@ enum Palette {
     }
 
     /// `src/render/house.js`: the house interior, its furniture and its
-    /// backdrop, drawn cross-section like a dollhouse.
+    /// backdrop, drawn cross-section like a dollhouse. Almost everything here
+    /// is a `DimmableRGB`: the house has its own light level (`lighting()` in
+    /// the JS), dimmer than the meadow's darkness curve and never pitch black,
+    /// and every one of these tones is passed through `shade()` there.
     enum House {
-        static let furnitureSofaBody = Color(hex: 0x7a4a52)
-        static let furnitureSofaTrim = Color(hex: 0x93606a)
-        static let furnitureChairBody = Color(hex: 0x8a6237)
-        static let furnitureChairTrim = Color(hex: 0xa3763f)
-        static let furnitureTableBody = Color(hex: 0x7d5734)
-        static let furnitureTableTrim = Color(hex: 0x996b41)
-        static let furniturePlantBody = Color(hex: 0x3f6b39)
-        static let furniturePlantTrim = Color(hex: 0x4f8446)
-        static let furnitureBoxBody = Color(hex: 0x8a7448)
-        static let furnitureBoxTrim = Color(hex: 0xa08a58)
-        static let furnitureBedBody = Color(hex: 0x5d6688)
-        static let furnitureBedTrim = Color(hex: 0x77809f)
+        static let furnitureSofaBody = DimmableRGB(r: 0x7a, g: 0x4a, b: 0x52)
+        static let furnitureSofaTrim = DimmableRGB(r: 0x93, g: 0x60, b: 0x6a)
+        static let furnitureChairBody = DimmableRGB(r: 0x8a, g: 0x62, b: 0x37)
+        static let furnitureChairTrim = DimmableRGB(r: 0xa3, g: 0x76, b: 0x3f)
+        static let furnitureTableBody = DimmableRGB(r: 0x7d, g: 0x57, b: 0x34)
+        static let furnitureTableTrim = DimmableRGB(r: 0x99, g: 0x6b, b: 0x41)
+        static let furniturePlantBody = DimmableRGB(r: 0x3f, g: 0x6b, b: 0x39)
+        static let furniturePlantTrim = DimmableRGB(r: 0x4f, g: 0x84, b: 0x46)
+        static let furnitureBoxBody = DimmableRGB(r: 0x8a, g: 0x74, b: 0x48)
+        static let furnitureBoxTrim = DimmableRGB(r: 0xa0, g: 0x8a, b: 0x58)
+        static let furnitureBedBody = DimmableRGB(r: 0x5d, g: 0x66, b: 0x88)
+        static let furnitureBedTrim = DimmableRGB(r: 0x77, g: 0x80, b: 0x9f)
+        // Furniture's shadow is a flat rgba() in the JS, never shaded by `dim`.
         static let furnitureShadow = Color(r: 0, g: 0, b: 0, a: 0.3)
-        static let plantPot = Color(hex: 0x6d4b33)
+        static let plantPot = DimmableRGB(r: 0x6d, g: 0x4b, b: 0x33)
 
-        static let wallGradientTop = Color(hex: 0x2a2230)
-        static let wallGradientBottom = Color(hex: 0x1a1620)
-        static let wallpaperTop = Color(hex: 0x6d5f74)
-        static let wallpaperBottom = Color(hex: 0x584c60)
+        // The backdrop dims by its own factor (`1 - darkness * 0.4`), distinct
+        // from the interior's `dim` (`1 - darkness * 0.5`).
+        static let wallGradientTop = DimmableRGB(r: 0x2a, g: 0x22, b: 0x30)
+        static let wallGradientBottom = DimmableRGB(r: 0x1a, g: 0x16, b: 0x20)
+        static let wallpaperTop = DimmableRGB(r: 0x6d, g: 0x5f, b: 0x74)
+        static let wallpaperBottom = DimmableRGB(r: 0x58, g: 0x4c, b: 0x60)
+        // The stripe's alpha itself is multiplied by `dim` in the JS, not its
+        // rgb — stays a plain `Color`, opacity applied at the call site.
         static let wallpaperStripeBase = Color(r: 255, g: 255, b: 255)
 
-        static let floorboard = Color(hex: 0x4a3527)
-        static let floorboardLine = Color(hex: 0x33241a)
-        static let skirting = Color(hex: 0x6b5847)
+        static let floorboard = DimmableRGB(r: 0x4a, g: 0x35, b: 0x27)
+        static let floorboardLine = DimmableRGB(r: 0x33, g: 0x24, b: 0x1a)
+        static let skirting = DimmableRGB(r: 0x6b, g: 0x58, b: 0x47)
 
-        static let ceilingSlab = Color(hex: 0x3a2f2a)
-        static let stairwellShaft = Color(hex: 0x4c4152)
-        static let stairwellSteps = Color(hex: 0x7a6450)
+        static let ceilingSlab = DimmableRGB(r: 0x3a, g: 0x2f, b: 0x2a)
+        static let stairwellShaft = DimmableRGB(r: 0x4c, g: 0x41, b: 0x52)
+        static let stairwellSteps = DimmableRGB(r: 0x7a, g: 0x64, b: 0x50)
 
-        static let doorDark = Color(hex: 0x2a1e18)
+        static let doorDark = DimmableRGB(r: 0x2a, g: 0x1e, b: 0x18)
+        // The door's glow is `rgba(255, 236, 180, 0.28 * (1 - darkness))` in the
+        // JS — alpha keyed to darkness directly, not shaded — so it too stays a
+        // plain `Color`.
         static let doorLightBase = Color(r: 255, g: 236, b: 180)
+
+        // The cat and the human draw from `Palette.Entities`
+        // (`catShadow`/`catCoatAlert`/... and `humanShadowSweepBase`/...): they
+        // were seeded there alongside the rest of `drawEntities`'s cast even
+        // though this task, not Task 2, is the one that draws them.
     }
 }
 

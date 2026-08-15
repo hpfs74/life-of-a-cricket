@@ -86,8 +86,11 @@ extension GraphicsContext {
 
     /// Water, drawn as one merged shape rather than a string of visible discs:
     /// every circle's ellipse goes onto the same path so their overlaps
-    /// disappear into a single fill.
-    private func drawWater(_ circles: [Circle], time: Double, darkness: Double, visibleFrom: Double, visibleTo: Double) {
+    /// disappear into a single fill. Shared with `HouseRender.swift`: indoor
+    /// spills and the pet bowl are drawn with this same function, matching the
+    /// JS's `house.js` importing `drawWater` from `background.js` rather than
+    /// reimplementing it.
+    func drawWater(_ circles: [Circle], time: Double, darkness: Double, visibleFrom: Double, visibleTo: Double) {
         let inView = circles.filter { $0.x + $0.radius >= visibleFrom && $0.x - $0.radius <= visibleTo }
         guard !inView.isEmpty else { return }
 

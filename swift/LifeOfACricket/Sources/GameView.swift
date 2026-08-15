@@ -15,6 +15,10 @@ struct GameView: View {
                 draw(into: &context, size: size, date: timeline.date)
             }
             .ignoresSafeArea()
+            // TEMPORARY (R28): any tap starts a run, matching the JS where
+            // touching anywhere begins play. Task 7's real input layer
+            // replaces this with the actual touch controls.
+            .onTapGesture { runner.requestStart() }
         }
     }
 
@@ -29,9 +33,10 @@ struct GameView: View {
 
         context.letterboxed(into: viewSize, viewport: size) { letterbox in
             // The sky is VIEW space: it holds still while the meadow scrolls
-            // beneath it. House interiors (Task 5) get their own backdrop.
-            if runner.game.stage == .meadow {
-                letterbox.drawSky(game: runner.game, time: time)
+            // beneath it. The house's backdrop is the same idea indoors.
+            switch runner.game.stage {
+            case .meadow: letterbox.drawSky(game: runner.game, time: time)
+            case .house: letterbox.drawHouseBackdrop(game: runner.game)
             }
 
             // Stands in for the real camera until gameplay input drives it
@@ -42,13 +47,17 @@ struct GameView: View {
             let cameraX = demoCameraX(time, holdSeconds: 4, limit: limit)
 
             letterbox.worldSpace(cameraX: cameraX) { world in
-                if runner.game.stage == .meadow {
-                    world.drawGround(game: runner.game, time: time, cameraX: cameraX)
+                switch runner.game.stage {
+                case .meadow: world.drawGround(game: runner.game, time: time, cameraX: cameraX)
+                case .house: world.drawHouseInterior(game: runner.game, time: time, cameraX: cameraX)
                 }
                 // Entities are stage-agnostic, same as `drawEntities` in the JS:
                 // the house reuses the same cricket/rivals/spiders/food types.
                 if runner.game.phase != .menu {
                     world.drawEntities(game: runner.game, time: time)
+                    // The house's own cast: a no-op outside the house, since
+                    // `game.cat`/`game.humans` are `nil` there.
+                    world.drawHouseCast(game: runner.game, time: time)
                 }
             }
         }
