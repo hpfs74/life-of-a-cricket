@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { CONFIG } from '../src/config.js';
 import {
   createWorld, clampToBounds, coverAt, isHidden, randomOpenPoint, spawnPoint, nearestCover,
-  isWater, nearestDryPoint,
+  isWater, nearestDryPoint, bandAt, inStairwell,
 } from '../src/world.js';
 
 // A deterministic stand-in for Math.random so layout tests are repeatable.
@@ -235,4 +235,81 @@ test('nearestDryPoint honours an extra avoid rule as well as the water', () => {
   const found = nearestDryPoint(world, spawn.x, spawn.y, CONFIG.cricket.radius, banned);
   assert.equal(banned(found.x, found.y), false, 'it settled inside the banned zone');
   assert.equal(isWater(world, found.x, found.y, CONFIG.cricket.radius), false);
+});
+
+// A two-floor world with a stairwell on the right, for the house.
+const twoFloors = {
+  width: 1000,
+  height: 620,
+  top: 40,
+  bands: [
+    { top: 40, bottom: 300 },    // upstairs
+    { top: 340, bottom: 600 },   // downstairs
+  ],
+  stairs: [{ x: 800, width: 90 }],
+  cover: [],
+  water: [],
+};
+
+test('a meadow is a one-band world with no stairs', () => {
+  const world = createWorld(seededRng(12));
+  assert.equal(world.kind, 'meadow');
+  assert.equal(world.bands.length, 1);
+  assert.deepEqual(world.bands[0], { top: world.top, bottom: world.height });
+  assert.deepEqual(world.stairs, []);
+});
+
+test('bandAt picks the floor a point stands on', () => {
+  assert.deepEqual(bandAt(twoFloors, 100, 200), twoFloors.bands[0]);
+  assert.deepEqual(bandAt(twoFloors, 100, 500), twoFloors.bands[1]);
+});
+
+test('a point caught inside the ceiling snaps to the nearest floor', () => {
+  assert.deepEqual(bandAt(twoFloors, 100, 305), twoFloors.bands[0], 'just under the upper floor');
+  assert.deepEqual(bandAt(twoFloors, 100, 335), twoFloors.bands[1], 'just above the lower floor');
+});
+
+test('a stairwell joins the floors into one tall corridor', () => {
+  assert.equal(inStairwell(twoFloors, 840), true);
+  assert.equal(inStairwell(twoFloors, 700), false);
+
+  const joined = bandAt(twoFloors, 840, 200);
+  assert.equal(joined.top, 40);
+  assert.equal(joined.bottom, 600, 'inside the stairs you can pass between floors');
+});
+
+test('a body cannot walk through a ceiling', () => {
+  // Upstairs, stepping down onto its own floor.
+  assert.equal(clampToBounds(twoFloors, 100, 296, 12).y, 300 - 12);
+
+  // Upstairs, stepping into the ceiling itself: pushed back onto its floor.
+  assert.equal(clampToBounds(twoFloors, 100, 310, 12).y, 300 - 12);
+
+  // Downstairs, pushing up into the ceiling from below.
+  assert.equal(clampToBounds(twoFloors, 100, 350, 12).y, 340 + 12);
+});
+
+test('clamping is per step: it resolves a position, it does not trace a path', () => {
+  // A body flung far past the ceiling resolves to the floor it landed nearest,
+  // which is why every mover steps incrementally rather than teleporting.
+  assert.equal(clampToBounds(twoFloors, 100, 9999, 12).y, 600 - 12);
+
+  // At the game's own speeds a single frame moves ten pixels or so, far too
+  // little to cross the forty-pixel ceiling gap.
+  const step = CONFIG.cricket.speed * CONFIG.game.maxFrameDelta;
+  assert.ok(step < 40, `a frame moves ${step}px, enough to skip a ceiling`);
+});
+
+test('inside the stairwell a body can move between floors', () => {
+  const descended = clampToBounds(twoFloors, 840, 500, 12);
+  assert.equal(descended.y, 500, 'the stairwell should not clamp mid-descent');
+
+  const floor = clampToBounds(twoFloors, 840, 9999, 12);
+  assert.equal(floor.y, 600 - 12, 'and it still stops at the bottom of the house');
+});
+
+test('a world with no bands at all still behaves like one floor', () => {
+  const bare = { width: 800, height: 600, top: 100, cover: [], water: [] };
+  assert.deepEqual(bandAt(bare, 10, 300), { top: 100, bottom: 600 });
+  assert.equal(clampToBounds(bare, 10, 0, 10).y, 110);
 });

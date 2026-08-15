@@ -79,6 +79,35 @@ export const CONFIG = {
     dropSettleSeconds: 0.35,
   },
 
+  // The house at the east end of the meadow: two floors in cross-section, with
+  // a stairwell joining them and furniture standing in for cover.
+  house: {
+    width: 2000,
+    height: 620,
+    // Upstairs runs from `top`; the ceiling gap separates the two floors.
+    top: 36,
+    floorHeight: 264,
+    ceilingGap: 44,
+    stairWidth: 96,
+    // Furniture per floor, sized like the meadow's cover so hiding feels the same.
+    furniturePerFloor: 7,
+    furnitureMinRadius: 32,
+    furnitureMaxRadius: 56,
+    furnitureMinSeparation: 108,
+    // A pet bowl and a spill or two, on the ground floor only.
+    spillCount: 2,
+    spillRadius: 26,
+    // Where the cricket comes in, and how wide the doorway is to walk back out.
+    doorWidth: 70,
+    entryClearance: 210,
+  },
+
+  // The doorway at the east end of the meadow that leads into the house.
+  doorway: {
+    width: 86,
+    height: 120,
+  },
+
   // A stream and a pond or two. Water is stored as overlapping circles: cheap
   // to test against, and they blob together into organic shapes.
   water: {

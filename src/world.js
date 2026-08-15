@@ -3,6 +3,45 @@ import { createWater, isWaterAt } from './water.js';
 
 const COVER_TYPES = ['grass', 'rock', 'leaf'];
 
+/**
+ * A world is divided into horizontal bands of walkable ground.
+ *
+ * The meadow has one, from the horizon to the bottom of the screen. A house has
+ * two, stacked, with a ceiling between them. A stairwell is an x-range where two
+ * bands join into one tall corridor.
+ *
+ * Modelling floors this way means nothing else has to know about them: cover,
+ * water and hit-testing already work on absolute coordinates, and because bands
+ * occupy disjoint y ranges, furniture upstairs cannot hide anything downstairs.
+ */
+
+/** True when this x sits inside a stairwell, where the bands join up. */
+export function inStairwell(world, x) {
+  return (world.stairs ?? []).some((stair) => x >= stair.x && x <= stair.x + stair.width);
+}
+
+/**
+ * The band of walkable ground at a point: the one containing `y`, or the whole
+ * height when standing in a stairwell. Falls back to the nearest band if `y` is
+ * inside a ceiling, so nothing can be trapped between floors.
+ */
+export function bandAt(world, x, y) {
+  const bands = world.bands ?? [{ top: world.top, bottom: world.height }];
+
+  if (inStairwell(world, x)) {
+    return { top: bands[0].top, bottom: bands[bands.length - 1].bottom };
+  }
+
+  const containing = bands.find((band) => y >= band.top && y <= band.bottom);
+  if (containing) return containing;
+
+  return bands.reduce((best, band) => {
+    const distance = Math.min(Math.abs(y - band.top), Math.abs(y - band.bottom));
+    const bestDistance = Math.min(Math.abs(y - best.top), Math.abs(y - best.bottom));
+    return distance < bestDistance ? band : best;
+  });
+}
+
 /** The point every run starts from: the middle of the playable ground. */
 export function spawnPoint(world) {
   return { x: world.width / 2, y: world.top + (world.height - world.top) / 2 };
@@ -22,7 +61,14 @@ export function createWorld(rng = Math.random) {
   } = CONFIG.world;
 
   const top = height * horizonFraction;
-  const world = { width, height, top, water: [], cover: [] };
+  const world = {
+    kind: 'meadow',
+    width, height, top,
+    // One band of ground, and no stairs: the meadow is a one-floor world.
+    bands: [{ top, bottom: height }],
+    stairs: [],
+    water: [], cover: [],
+  };
   world.water = createWater({ width, height, top }, rng);
   const spawn = spawnPoint(world);
 
@@ -59,11 +105,15 @@ export function createWorld(rng = Math.random) {
   return world;
 }
 
-/** Keeps a body inside the playable ground, never up in the sky. */
+/**
+ * Keeps a body inside the walkable ground: never up in the sky outdoors, and
+ * never through a ceiling indoors.
+ */
 export function clampToBounds(world, x, y, radius) {
+  const band = bandAt(world, x, y);
   return {
     x: Math.min(Math.max(x, radius), world.width - radius),
-    y: Math.min(Math.max(y, world.top + radius), world.height - radius),
+    y: Math.min(Math.max(y, band.top + radius), band.bottom - radius),
   };
 }
 
