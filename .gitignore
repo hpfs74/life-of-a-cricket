@@ -6,6 +6,8 @@ node_modules/
 # also rewrite project.pbxproj with a local DEVELOPMENT_TEAM if allowed to.
 .build/
 .swiftpm/
-*.xcodeproj/xcuserdata/
-*.xcodeproj/project.xcworkspace/
+# Unanchored: these appear nested under swift/, and a pattern containing a
+# slash is anchored to this file's directory unless it starts with **/.
+**/xcuserdata/
+**/project.xcworkspace/
 DerivedData/
