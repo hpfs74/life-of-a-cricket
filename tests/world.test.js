@@ -42,6 +42,17 @@ test('cover objects are separated enough to leave lanes between them', () => {
   }
 });
 
+test('no cover lands on the spawn point, so a run always starts exposed', () => {
+  for (let seed = 1; seed <= 40; seed += 1) {
+    const world = createWorld(seededRng(seed));
+    assert.equal(
+      isHidden(world, world.width / 2, world.height / 2),
+      false,
+      `seed ${seed} spawned the cricket inside cover`,
+    );
+  }
+});
+
 test('clampToBounds keeps a body fully inside the meadow', () => {
   const world = createWorld(seededRng(1));
   assert.deepEqual(clampToBounds(world, -50, -50, 10), { x: 10, y: 10 });

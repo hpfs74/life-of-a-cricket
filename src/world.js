@@ -5,12 +5,16 @@ const COVER_TYPES = ['grass', 'rock', 'leaf'];
 /**
  * Builds the meadow: fixed bounds plus a scattering of cover objects that the
  * cricket can hide inside. Cover is rejection-sampled so no two pieces overlap
- * closely enough to merge into one unreadable blob.
+ * closely enough to merge into one unreadable blob, and so none of it lands on
+ * the spawn point — the run always starts in the open, exposed and scoring.
  */
 export function createWorld(rng = Math.random) {
-  const { width, height, edgeMargin, coverCount, coverMinRadius, coverMaxRadius, coverMinSeparation } =
-    CONFIG.world;
+  const {
+    width, height, edgeMargin, coverCount,
+    coverMinRadius, coverMaxRadius, coverMinSeparation, spawnClearance,
+  } = CONFIG.world;
 
+  const spawn = { x: width / 2, y: height / 2 };
   const cover = [];
   let attempts = 0;
 
@@ -22,6 +26,8 @@ export function createWorld(rng = Math.random) {
     const minY = Math.max(radius, edgeMargin);
     const x = minX + rng() * (width - minX * 2);
     const y = minY + rng() * (height - minY * 2);
+
+    if (Math.hypot(spawn.x - x, spawn.y - y) < radius + spawnClearance) continue;
 
     const tooClose = cover.some(
       (item) => Math.hypot(item.x - x, item.y - y) < coverMinSeparation,

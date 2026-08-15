@@ -7,6 +7,7 @@ export const CONFIG = {
     coverMinRadius: 34,
     coverMaxRadius: 58,
     coverMinSeparation: 90,
+    spawnClearance: 48,
   },
 
   cricket: {
