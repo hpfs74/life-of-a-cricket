@@ -44,6 +44,11 @@ public enum GameEvent: Equatable, Sendable {
     case catNoticed
     case catLost
     case catPounced
+    /// A pounce that misses. `src/cat.js` returns `'missed'` from its state
+    /// machine, and `game.js` forwards it as `cat-missed`, but `src/audio.js`
+    /// has no case for it — same deliberate silence as `spiderMiss`: the JS
+    /// reference emits the event and simply plays nothing for it today.
+    case catMissed
     case humanApproaching
     case footfall(x: Double, y: Double)
     case humanGone
