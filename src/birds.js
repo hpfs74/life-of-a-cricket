@@ -6,19 +6,34 @@ export function kindConfig(kind) {
 }
 
 /**
- * Creates an aerial predator just outside a random edge of the meadow.
+ * Where a predator sets up its orbit. On a meadow wider than the view it hunts
+ * around the cricket rather than the distant middle of the world, but it never
+ * centres so close to an edge that half its circle is off the map.
+ */
+function huntCentre(world, focus) {
+  const half = CONFIG.view.width / 2;
+  if (!focus || world.width <= CONFIG.view.width) return world.width / 2;
+  return Math.min(world.width - half, Math.max(half, focus.x));
+}
+
+/**
+ * Creates an aerial predator just off the edge of the visible window.
  * `difficulty` (1 upward) scales every speed, which is how the game ramps.
  * `kind` is 'bird' by day and 'bat' by night; both share this state machine.
+ * `focus` is the point it hunts around — the cricket, in play.
  */
-export function spawnBird(world, rng = Math.random, difficulty = 1, kind = 'bird') {
+export function spawnBird(world, rng = Math.random, difficulty = 1, kind = 'bird', focus = null) {
   const edge = Math.floor(rng() * 4) % 4;
-  const margin = 120;
+  const centreX = huntCentre(world, focus);
+  const centreY = world.top + (world.height - world.top) / 2;
+  const margin = CONFIG.view.width / 2 + 120;
+  const spread = (value) => centreX + (value - 0.5) * CONFIG.view.width;
 
   const positions = [
-    { x: rng() * world.width, y: -margin },
-    { x: world.width + margin, y: rng() * world.height },
-    { x: rng() * world.width, y: world.height + margin },
-    { x: -margin, y: rng() * world.height },
+    { x: spread(rng()), y: -120 },
+    { x: centreX + margin, y: rng() * world.height },
+    { x: spread(rng()), y: world.height + 120 },
+    { x: centreX - margin, y: rng() * world.height },
   ];
 
   const start = positions[edge];
@@ -35,9 +50,9 @@ export function spawnBird(world, rng = Math.random, difficulty = 1, kind = 'bird
     targetX: 0,
     targetY: 0,
     speedScale: difficulty * kindConfig(kind).speedScale,
-    centerX: world.width / 2,
-    // Birds orbit over the playable ground, not over the empty sky band.
-    centerY: world.top + (world.height - world.top) / 2,
+    centerX: centreX,
+    // Predators orbit over the playable ground, not over the empty sky band.
+    centerY: centreY,
     exitX: start.x,
     exitY: start.y,
   };

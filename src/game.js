@@ -5,6 +5,7 @@ import { createFoodField, updateFood, consumeFood } from './food.js';
 import { spawnBird, updateBird } from './birds.js';
 import { createScore, tickSong, breakSong, tickFed, eat, commitHighScore } from './score.js';
 import { createAttention, tickAttention, resetAttention } from './attention.js';
+import { createRivals, updateRivals } from './rivals.js';
 import { dayAt, isNight } from './daylight.js';
 
 export { dayAt, isNight };
@@ -25,6 +26,7 @@ export function createGame({ storage, rng = Math.random } = {}) {
     cricket: createCricket(world),
     birds: [],
     food: createFoodField(),
+    rivals: createRivals(world, rng),
     score: createScore(storage),
     attention: createAttention(),
     lives: CONFIG.game.startingLives,
@@ -57,6 +59,7 @@ export function startRun(game) {
   game.cricket = createCricket(game.world);
   game.birds = [];
   game.food = createFoodField();
+  game.rivals = createRivals(game.world, game.rng);
   game.score = createScore(game.score.storage);
   game.score.highScore = highScore;
   game.attention = createAttention();
@@ -116,7 +119,7 @@ export function updateGame(game, intent, dt) {
 
   for (let i = 0; i < spawned + patrols; i += 1) {
     if (game.birds.length >= CONFIG.bird.maxAlive) break;
-    const bird = spawnBird(game.world, game.rng, difficulty, kind);
+    const bird = spawnBird(game.world, game.rng, difficulty, kind, game.cricket);
     game.birds.push(bird);
     events.push({ type: 'bird-spawn', bird, kind });
   }
@@ -128,6 +131,11 @@ export function updateGame(game, intent, dt) {
       eat(game.score, item.value);
       events.push({ type: 'ate', food: item });
     }
+  }
+
+  // The cricket gets first claim each frame; the rivals take what is left.
+  for (const item of updateRivals(game.rivals, dt, game.world, game.food, game.rng)) {
+    events.push({ type: 'rival-ate', food: item });
   }
 
   const context = {

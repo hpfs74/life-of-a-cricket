@@ -275,6 +275,7 @@ test('the game reports jump and landing so the presentation layer can react', ()
 
 test('an airborne cricket flies over food instead of eating it', () => {
   const game = newGame();
+  game.rivals = [];   // this is about the cricket, not about competition
   updateGame(game, { dx: 0, dy: 0, sing: false, jump: true }, 1 / 60);
   assert.equal(game.cricket.jumping, true);
 
@@ -338,4 +339,44 @@ test('credits cannot be opened mid-run, and nothing simulates while they are up'
   updateGame(game, singing, 1);
   assert.equal(game.score.points, 0);
   assert.equal(game.elapsed, 0);
+});
+
+test('rival insects share the meadow and take food the cricket leaves', () => {
+  const game = newGame();
+  assert.equal(game.rivals.length, CONFIG.rivals.count);
+
+  // Park a rival right on a crumb, well away from the cricket.
+  const rival = game.rivals[0];
+  rival.nibbleFor = 0;
+  rival.x = game.cricket.x + 500;
+  rival.y = game.cricket.y;
+  game.food.items = [{ x: rival.x, y: rival.y, type: 'seed', value: 25, radius: 6, age: 0 }];
+
+  const events = updateGame(game, still, 1 / 60);
+
+  assert.ok(events.some((e) => e.type === 'rival-ate'), 'the rival should have taken it');
+  assert.ok(!events.some((e) => e.type === 'ate'), 'and the cricket should score nothing for it');
+  assert.equal(game.score.points, 0);
+});
+
+test('the cricket gets first claim on food it is standing on', () => {
+  const game = newGame();
+  const rival = game.rivals[0];
+  rival.nibbleFor = 0;
+  rival.x = game.cricket.x;
+  rival.y = game.cricket.y;
+  game.food.items = [{ x: game.cricket.x, y: game.cricket.y, type: 'berry', value: 60, radius: 9, age: 0 }];
+
+  const events = updateGame(game, still, 1 / 60);
+
+  assert.ok(events.some((e) => e.type === 'ate'), 'the cricket should win the tie');
+  assert.ok(!events.some((e) => e.type === 'rival-ate'));
+  assert.ok(game.score.points >= 60);
+});
+
+test('a fresh run repopulates the rivals', () => {
+  const game = newGame();
+  game.rivals = [];
+  startRun(game);
+  assert.equal(game.rivals.length, CONFIG.rivals.count);
 });

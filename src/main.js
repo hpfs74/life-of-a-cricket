@@ -2,7 +2,8 @@ import { CONFIG } from './config.js';
 import { createGame, startRun, updateGame, showCredits, closeCredits } from './game.js';
 import { createInput } from './input.js';
 import { createAudio } from './audio.js';
-import { drawBackground } from './render/background.js';
+import { createCamera, updateCamera } from './camera.js';
+import { drawSky, drawGround } from './render/background.js';
 import { drawEntities } from './render/entities.js';
 import { drawHud, drawOverlay } from './render/hud.js';
 
@@ -12,6 +13,7 @@ const ctx = canvas.getContext('2d');
 const game = createGame({ storage: window.localStorage, rng: Math.random });
 const input = createInput(window);
 const audio = createAudio();
+const camera = createCamera(game.world, game.cricket);
 
 input.attach();
 
@@ -29,10 +31,12 @@ function resize() {
   canvas.style.width = `${cssWidth}px`;
   canvas.style.height = `${cssHeight}px`;
 
-  const scale = Math.min(cssWidth / CONFIG.world.width, cssHeight / CONFIG.world.height);
+  // The view, not the world, is what gets letterboxed: the meadow is wider than
+  // the window and scrolls behind it.
+  const scale = Math.min(cssWidth / CONFIG.view.width, cssHeight / CONFIG.view.height);
   view.scale = scale;
-  view.offsetX = (cssWidth - CONFIG.world.width * scale) / 2;
-  view.offsetY = (cssHeight - CONFIG.world.height * scale) / 2;
+  view.offsetX = (cssWidth - CONFIG.view.width * scale) / 2;
+  view.offsetY = (cssHeight - CONFIG.view.height * scale) / 2;
 }
 
 window.addEventListener('resize', resize);
@@ -142,6 +146,7 @@ function frame(now) {
 
   audio.setSinging(game.phase === 'PLAYING' && game.cricket.singing, game.score.multiplier);
   audio.update(dt, { night: game.night });
+  updateCamera(camera, game.cricket, game.world, dt);
 
   const dpr = window.devicePixelRatio || 1;
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -152,11 +157,21 @@ function frame(now) {
   ctx.translate(view.offsetX, view.offsetY);
   ctx.scale(view.scale, view.scale);
 
-  drawBackground(ctx, game, time);
-  if (game.phase !== 'MENU') {
-    drawEntities(ctx, game, time);
-    drawHud(ctx, game);
-  }
+  // Clip to the view so the scrolling meadow cannot spill into the letterbox.
+  ctx.beginPath();
+  ctx.rect(0, 0, CONFIG.view.width, CONFIG.view.height);
+  ctx.clip();
+
+  drawSky(ctx, game, time);
+
+  // Everything from here to the matching restore is in world space.
+  ctx.save();
+  ctx.translate(-Math.round(camera.x), 0);
+  drawGround(ctx, game, time, camera.x);
+  if (game.phase !== 'MENU' && game.phase !== 'CREDITS') drawEntities(ctx, game, time);
+  ctx.restore();
+
+  if (game.phase !== 'MENU' && game.phase !== 'CREDITS') drawHud(ctx, game);
   drawOverlay(ctx, game);
 
   ctx.restore();

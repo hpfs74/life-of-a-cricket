@@ -125,10 +125,14 @@ function drawCover(ctx, item, time) {
   }
 }
 
-export function drawBackground(ctx, game, time) {
-  const { width, height, top: horizon } = game.world;
+/**
+ * The sky is drawn in view space, not world space, so it stays put while the
+ * ground scrolls underneath. That difference is the parallax.
+ */
+export function drawSky(ctx, game, time) {
+  const horizon = game.world.top;
+  const width = CONFIG.view.width;
   const darkness = darknessAt(game.elapsed);
-  const phase = phaseOfDay(game.elapsed);
   const sky = skyStops(darkness);
 
   const gradient = ctx.createLinearGradient(0, 0, 0, horizon);
@@ -138,7 +142,19 @@ export function drawBackground(ctx, game, time) {
   ctx.fillRect(0, 0, width, horizon);
 
   drawStars(ctx, width, horizon, darkness, time);
-  drawCelestialBody(ctx, width, horizon, phase);
+  drawCelestialBody(ctx, width, horizon, phaseOfDay(game.elapsed));
+}
+
+/**
+ * The ground is drawn in world space, behind the camera transform. Only the
+ * slice the camera can see is drawn: the meadow is several screens wide, and
+ * stroking every blade of it would be wasted work.
+ */
+export function drawGround(ctx, game, time, cameraX = 0) {
+  const { width, height, top: horizon } = game.world;
+  const darkness = darknessAt(game.elapsed);
+  const visibleFrom = cameraX - 40;
+  const visibleTo = cameraX + CONFIG.view.width + 40;
 
   // The ground dims with the sky, but never to pure black: the player still
   // has to read cover and food at midnight.
@@ -164,7 +180,8 @@ export function drawBackground(ctx, game, time) {
     ctx.strokeStyle = layer.color;
     ctx.lineWidth = layer.lineWidth;
 
-    for (let x = -12; x < width + 12; x += layer.step) {
+    const start = Math.floor(visibleFrom / layer.step) * layer.step;
+    for (let x = start; x < visibleTo; x += layer.step) {
       const hash = Math.sin(x * 12.9898) * 43758.5453;
       const jitter = hash - Math.floor(hash);
       const height = (14 + jitter * 26) * layer.scale;
@@ -177,5 +194,8 @@ export function drawBackground(ctx, game, time) {
     }
   }
 
-  for (const item of game.world.cover) drawCover(ctx, item, time);
+  for (const item of game.world.cover) {
+    if (item.x + item.radius < visibleFrom || item.x - item.radius > visibleTo) continue;
+    drawCover(ctx, item, time);
+  }
 }

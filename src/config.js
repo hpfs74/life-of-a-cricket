@@ -1,15 +1,24 @@
 export const CONFIG = {
-  world: {
+  // The window onto the world. The meadow is wider than this, so the camera
+  // scrolls sideways to follow the cricket.
+  view: {
     width: 960,
+    height: 600,
+    // How quickly the camera catches up, as a fraction of the gap per second.
+    followPerSecond: 6,
+  },
+
+  world: {
+    width: 2880,
     height: 600,
     // Everything above this fraction of the height is sky. The ground below it
     // is the playable field: the cricket, cover and food all stay inside it.
     horizonFraction: 0.28,
     edgeMargin: 24,
-    coverCount: 9,
+    coverCount: 26,
     coverMinRadius: 34,
     coverMaxRadius: 58,
-    coverMinSeparation: 90,
+    coverMinSeparation: 100,
     spawnClearance: 48,
   },
 
@@ -44,8 +53,8 @@ export const CONFIG = {
   },
 
   food: {
-    maxOnScreen: 5,
-    spawnIntervalSeconds: 2.2,
+    maxOnScreen: 12,
+    spawnIntervalSeconds: 1.5,
     eatRadius: 20,
     types: {
       seed: { value: 25, radius: 6 },
@@ -53,6 +62,19 @@ export const CONFIG = {
       berry: { value: 60, radius: 9 },
       aphid: { value: 120, radius: 7 },
     },
+  },
+
+  // Ants and beetles share the meadow. They are no threat to the cricket, but
+  // they eat the same food, so dawdling costs points.
+  rivals: {
+    count: 6,
+    speed: 58,
+    radius: 7,
+    eatRadius: 13,
+    // How long a rival stays put after a meal before hunting again.
+    nibbleSeconds: 0.8,
+    // How far it will look for food before wandering instead.
+    senseRange: 420,
   },
 
   attention: {

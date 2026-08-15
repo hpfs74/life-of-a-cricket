@@ -348,6 +348,10 @@ export function createAudio() {
             tone({ frequency: 1500, sweepTo: 420, duration: 0.45, type: 'sawtooth', gain: 0.12 });
           }
           break;
+        case 'rival-ate':
+          // Someone else's meal: quieter, and lower than the cricket's own.
+          tone({ frequency: 340, sweepTo: 250, duration: 0.09, type: 'triangle', gain: 0.05 });
+          break;
         case 'ate':
           tone({ frequency: 620, sweepTo: 980, duration: 0.12, type: 'triangle', gain: 0.16 });
           break;

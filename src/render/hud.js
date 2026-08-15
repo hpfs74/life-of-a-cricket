@@ -19,7 +19,8 @@ function meter(ctx, x, y, width, height, fill, color, label) {
 }
 
 export function drawHud(ctx, game) {
-  const { width } = game.world;
+  // The HUD lives in view space: it does not scroll with the meadow.
+  const width = CONFIG.view.width;
 
   ctx.textAlign = 'left';
   ctx.textBaseline = 'top';
@@ -53,17 +54,10 @@ export function drawHud(ctx, game) {
   ctx.fillStyle = '#ffffff';
   ctx.fillText('♥'.repeat(Math.max(0, game.lives)), width - 22, 22);
 
-  if (game.hidden) {
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillStyle = 'rgba(160, 220, 255, 0.9)';
-    ctx.font = '600 15px ui-sans-serif, system-ui, sans-serif';
-    ctx.fillText('hidden', game.cricket.x, game.cricket.y - 42);
-  }
 }
 
 function panel(ctx, game, lines) {
-  const { width, height } = game.world;
+  const { width, height } = CONFIG.view;
 
   ctx.fillStyle = 'rgba(8, 12, 18, 0.72)';
   ctx.fillRect(0, 0, width, height);

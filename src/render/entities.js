@@ -241,8 +241,75 @@ function drawBird(ctx, bird, game, time) {
   }
 }
 
+const RIVAL_COLORS = {
+  ant: { body: '#4a3428', shine: '#6d4d3a' },
+  beetle: { body: '#2f3a44', shine: '#59707f' },
+};
+
+/** Ants and beetles: small, busy, and after the same food as the cricket. */
+function drawRival(ctx, rival, time) {
+  const r = CONFIG.rivals.radius;
+  const palette = RIVAL_COLORS[rival.kind] ?? RIVAL_COLORS.ant;
+  const scuttle = rival.nibbleFor > 0 ? 0 : Math.sin(time * 18 + rival.phase);
+
+  ctx.save();
+  ctx.translate(rival.x, rival.y);
+  ctx.rotate(Math.atan2(rival.dirY, rival.dirX));
+
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.22)';
+  ctx.beginPath();
+  ctx.ellipse(0, r * 0.9, r * 0.9, r * 0.3, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.strokeStyle = palette.body;
+  ctx.lineWidth = 1.5;
+  ctx.lineCap = 'round';
+  for (const side of [-1, 1]) {
+    for (let i = -1; i <= 1; i += 1) {
+      ctx.beginPath();
+      ctx.moveTo(i * r * 0.4, side * r * 0.35);
+      ctx.lineTo(i * r * 0.5 + scuttle * 1.5, side * (r * 1.1));
+      ctx.stroke();
+    }
+  }
+
+  ctx.fillStyle = palette.body;
+  if (rival.kind === 'beetle') {
+    ctx.beginPath();
+    ctx.ellipse(0, 0, r * 1.15, r * 0.85, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = palette.shine;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(-r * 0.9, 0);
+    ctx.lineTo(r * 0.8, 0);
+    ctx.stroke();
+  } else {
+    for (const [ox, rx] of [[-r * 0.85, r * 0.5], [0, r * 0.34], [r * 0.75, r * 0.42]]) {
+      ctx.beginPath();
+      ctx.ellipse(ox, 0, rx, rx * 0.82, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  ctx.restore();
+}
+
+/** Sits above the cricket, so it is drawn in world space with everything else. */
+function drawHiddenMarker(ctx, game) {
+  if (!game.hidden) return;
+
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = 'rgba(160, 220, 255, 0.9)';
+  ctx.font = '600 15px ui-sans-serif, system-ui, sans-serif';
+  ctx.fillText('hidden', game.cricket.x, game.cricket.y - 42);
+}
+
 export function drawEntities(ctx, game, time) {
   for (const item of game.food.items) drawFood(ctx, item);
+  for (const rival of game.rivals) drawRival(ctx, rival, time);
   drawCricket(ctx, game, time);
+  drawHiddenMarker(ctx, game);
   for (const bird of game.birds) drawBird(ctx, bird, game, time);
 }
