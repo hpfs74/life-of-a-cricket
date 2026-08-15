@@ -83,3 +83,34 @@ private func context(_ world: World, _ cricket: Cricket,
                           difficulty: 2, kind: .bird, focus: nil)
     #expect(fast.speedScale > slow.speedScale)
 }
+
+@Test func theDiveTargetIsFrozenAtScanTimeAndDoesNotTrackTheCricket() {
+    let world = meadow()
+    var cricket = Cricket(world: world)
+    var bird = Bird.spawn(world: world, rng: SeededRandom(seed: 7),
+                          difficulty: 1, kind: .bird, focus: Point(x: cricket.x, y: cricket.y))
+
+    for _ in 0..<600 {
+        _ = bird.update(dt: 1.0 / 60, context: context(world, cricket))
+        if bird.state != .enter { break }
+    }
+    #expect(bird.state == .circle)
+
+    for _ in 0..<600 {
+        _ = bird.update(dt: 1.0 / 60, context: context(world, cricket))
+        if bird.state == .dive { break }
+    }
+    #expect(bird.state == .dive)
+    #expect(bird.targetX == cricket.x)
+    #expect(bird.targetY == cricket.y)
+    let frozenTargetX = bird.targetX
+    let frozenTargetY = bird.targetY
+
+    // The cricket bolts mid-dive.
+    cricket.x = 9000
+    cricket.y = -9000
+    _ = bird.update(dt: 1.0 / 60, context: context(world, cricket))
+
+    #expect(bird.targetX == frozenTargetX, "the dive target must not follow the cricket")
+    #expect(bird.targetY == frozenTargetY)
+}

@@ -193,3 +193,123 @@ private let singing = Intent(sing: true)
     #expect(game.phase == .gameOver)
     #expect(game.newRecord)
 }
+
+@Test func theMercyWindowStopsASecondHitFromCostingASecondLife() {
+    var game = newGame()
+    let before = game.lives
+
+    // Drop a bird on top of the cricket, mid-dive, and land the first hit.
+    var bird = Bird.spawn(world: game.world, rng: SeededRandom(seed: 1),
+                          difficulty: 1, kind: .bird, focus: nil)
+    bird.state = .dive
+    bird.x = game.cricket.x; bird.y = game.cricket.y
+    bird.targetX = game.cricket.x; bird.targetY = game.cricket.y
+    game.birds = [bird]
+
+    var sawFirstHit = false
+    for _ in 0..<10 {
+        for event in game.update(intent: still, dt: 1.0 / 60) {
+            if case .hit = event { sawFirstHit = true }
+        }
+        if sawFirstHit { break }
+    }
+    #expect(sawFirstHit)
+    #expect(game.lives == before - 1)
+
+    // Land a second dive on the same spot, well inside the 1.6s mercy window.
+    var second = Bird.spawn(world: game.world, rng: SeededRandom(seed: 2),
+                            difficulty: 1, kind: .bird, focus: nil)
+    second.state = .dive
+    second.x = game.cricket.x; second.y = game.cricket.y
+    second.targetX = game.cricket.x; second.targetY = game.cricket.y
+    game.birds = [second]
+
+    var sawSecondHit = false
+    for _ in 0..<10 {
+        for event in game.update(intent: still, dt: 1.0 / 60) {
+            if case .hit = event { sawSecondHit = true }
+        }
+    }
+
+    #expect(!sawSecondHit, "a hit inside the mercy window should not register at all")
+    #expect(game.lives == before - 1, "only one life should have been lost")
+}
+
+/** Parks a bug of the given kind just in front of the cricket, facing it. */
+@discardableResult
+private func bugInFront(_ game: inout Game, kind: RivalKind) -> Rival {
+    let bug = Rival(
+        x: game.cricket.x + 20, y: game.cricket.y, dirX: 1, dirY: 0, kind: kind,
+        health: kind.health, flashFor: 0, nibbleFor: 999, phase: 0,
+        targetX: 0, targetY: 0
+    )
+    game.rivals = [bug]
+    game.cricket.dirX = 1
+    game.cricket.dirY = 0
+    return bug
+}
+
+@Test func killingAnAntLeavesAGrubWhereItFell() {
+    var game = newGame()
+    game.food.items = []
+    let ant = bugInFront(&game, kind: .ant)
+
+    let events = game.update(intent: Intent(strike: true), dt: 1.0 / 60)
+
+    #expect(events.contains { if case .bugKilled(let kind, _) = $0 { return kind == .ant }; return false })
+    #expect(game.rivals.isEmpty)
+    #expect(game.food.items.count == RivalKind.ant.drops)
+    #expect(game.food.items.first?.type == .grub)
+    if let drop = game.food.items.first {
+        #expect(hypot2(drop.x - ant.x, drop.y - ant.y) < 30)
+    }
+}
+
+@Test func aBeetleTakesTwoSwingsAndStunsTheCricketInBetween() {
+    var game = newGame()
+    game.food.items = []
+    bugInFront(&game, kind: .beetle)
+
+    let first = game.update(intent: Intent(strike: true), dt: 1.0 / 60)
+    #expect(first.contains { if case .bugHit = $0 { return true }; return false })
+    #expect(first.contains { if case .stunned = $0 { return true }; return false })
+    #expect(game.cricket.stunnedFor > 0)
+    #expect(game.rivals.count == 1, "it should still be standing")
+
+    // Shake off the stun, then finish it.
+    for _ in 0..<60 { game.update(intent: still, dt: 1.0 / 60) }
+    #expect(game.cricket.stunnedFor == 0)
+
+    game.rivals[0].x = game.cricket.x + 20
+    game.rivals[0].y = game.cricket.y
+    let second = game.update(intent: Intent(strike: true), dt: 1.0 / 60)
+
+    #expect(second.contains { if case .bugKilled(let kind, _) = $0 { return kind == .beetle }; return false })
+    #expect(game.food.items.count == RivalKind.beetle.drops, "a beetle should pay double")
+}
+
+@Test func aStunnedCricketCannotMoveSingLeapOrSwing() {
+    var game = newGame()
+    bugInFront(&game, kind: .beetle)
+    game.update(intent: Intent(strike: true), dt: 1.0 / 60)
+    #expect(game.cricket.stunnedFor > 0)
+
+    let startX = game.cricket.x
+    let events = game.update(intent: Intent(dx: 1, dy: 0, sing: true, jump: true, strike: true), dt: 1.0 / 60)
+
+    #expect(game.cricket.x == startX, "it moved while stunned")
+    #expect(!game.cricket.singing)
+    #expect(!game.cricket.jumping)
+    #expect(!events.contains { if case .strike = $0 { return true }; return false })
+}
+
+@Test func aSilentCricketInTheOpenScoresNothing() {
+    var game = newGame()
+    // The cricket spawns in the open by construction; confirm it and stay still.
+    #expect(!game.hidden)
+
+    for _ in 0..<120 { game.update(intent: still, dt: 1.0 / 60) }
+
+    #expect(game.score.points == 0, "no song, no points, cover or not")
+    #expect(!game.hidden)
+}

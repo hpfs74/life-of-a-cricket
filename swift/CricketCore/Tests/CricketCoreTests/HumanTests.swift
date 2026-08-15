@@ -52,6 +52,34 @@ private func context(_ world: World, _ cricket: Cricket, hidden: Bool = false) -
     #expect(!crushed, "hidden under furniture, nothing lands on you")
 }
 
+@Test func anUnhiddenCricketIsCrushedByAFootfall() {
+    let world = house()
+    var schedule = HumanSchedule(rng: SeededRandom(seed: 3))
+    var cricket = Cricket(world: world)
+
+    // Walk the schedule until a crossing starts, then stand under it, exposed.
+    var started = false
+    for _ in 0..<3000 where !started {
+        let events = schedule.update(dt: 1.0 / 60, context: context(world, cricket),
+                                     rng: SeededRandom(seed: 5))
+        started = events.contains(.approaching)
+    }
+    let walker = try! #require(schedule.walker)
+    cricket.y = walker.y
+
+    var crushed = false
+    for _ in 0..<3000 {
+        cricket.x = schedule.walker?.x ?? cricket.x
+        let events = schedule.update(dt: 1.0 / 60, context: context(world, cricket, hidden: false),
+                                     rng: SeededRandom(seed: 5))
+        if events.contains(where: { if case .crush = $0 { return true }; return false }) {
+            crushed = true
+        }
+        if crushed || schedule.walker == nil { break }
+    }
+    #expect(crushed, "standing exposed under a footfall should be fatal")
+}
+
 @Test func aCrossingEventuallyEnds() {
     let world = house()
     var schedule = HumanSchedule(rng: SeededRandom(seed: 3))
