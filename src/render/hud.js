@@ -34,12 +34,17 @@ export function drawHud(ctx, game) {
   meter(ctx, 22, 82, 160, 10, game.attention.value, '#ff6b5e', 'attention');
   meter(ctx, 22, 100, 160, 10, game.score.fed / CONFIG.score.fedSeconds, '#7fd36a', 'fed');
 
+  // The day counter sits dead centre at the top: it is the run's headline stat.
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'top';
+  ctx.fillStyle = '#ffffff';
+  ctx.font = '700 24px ui-sans-serif, system-ui, sans-serif';
+  ctx.fillText(`${game.night ? '\u263e' : '\u2600'}  Day ${game.day}`, width / 2, 18);
+
   if (game.score.multiplier > CONFIG.score.multiplierStart + 0.001) {
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'top';
     ctx.fillStyle = '#ffe9a8';
-    ctx.font = '700 22px ui-sans-serif, system-ui, sans-serif';
-    ctx.fillText(`x${game.score.multiplier.toFixed(1)}`, width / 2, 20);
+    ctx.font = '700 20px ui-sans-serif, system-ui, sans-serif';
+    ctx.fillText(`x${game.score.multiplier.toFixed(1)}`, width / 2, 48);
   }
 
   ctx.textAlign = 'right';
@@ -84,7 +89,19 @@ export function drawOverlay(ctx, game) {
       { text: 'Move with WASD or the arrow keys. Hold SPACE to sing.', color: 'rgba(255,255,255,0.85)' },
       { text: 'Singing scores — and it is loud. Birds come for the noise.', color: 'rgba(255,255,255,0.85)' },
       { text: 'Hide in grass, rocks and leaves. Cover only saves you if you stay quiet.', color: 'rgba(255,255,255,0.85)', gap: 56 },
-      { text: 'Press ENTER to begin', color: '#ffe9a8', font: '700 22px ui-sans-serif, system-ui, sans-serif' },
+      { text: 'Press ENTER to begin', color: '#ffe9a8', font: '700 22px ui-sans-serif, system-ui, sans-serif', gap: 40 },
+      { text: 'C for credits', color: 'rgba(255,255,255,0.55)', font: '600 15px ui-sans-serif, system-ui, sans-serif' },
+    ]);
+    return;
+  }
+
+  if (game.phase === 'CREDITS') {
+    panel(ctx, game, [
+      { text: 'Credits', font: '700 42px ui-sans-serif, system-ui, sans-serif', gap: 66 },
+      { text: 'Game design', color: 'rgba(255,255,255,0.6)', font: '600 14px ui-sans-serif, system-ui, sans-serif', gap: 30 },
+      { text: 'Anna Teresa Salvestrini', font: '700 28px ui-sans-serif, system-ui, sans-serif', gap: 60 },
+      { text: 'Life of a Cricket', color: 'rgba(255,255,255,0.75)', font: '600 17px ui-sans-serif, system-ui, sans-serif', gap: 56 },
+      { text: 'Press ENTER or ESC to go back', color: '#ffe9a8', font: '700 18px ui-sans-serif, system-ui, sans-serif' },
     ]);
     return;
   }

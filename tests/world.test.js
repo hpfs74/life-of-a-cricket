@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { CONFIG } from '../src/config.js';
 import {
-  createWorld, clampToBounds, coverAt, isHidden, randomOpenPoint, spawnPoint,
+  createWorld, clampToBounds, coverAt, isHidden, randomOpenPoint, spawnPoint, nearestCover,
 } from '../src/world.js';
 
 // A deterministic stand-in for Math.random so layout tests are repeatable.
@@ -115,4 +115,69 @@ test('randomOpenPoint never lands inside cover', () => {
     assert.ok(point.x >= 0 && point.x <= world.width);
     assert.ok(point.y >= 0 && point.y <= world.height);
   }
+});
+
+// A hand-laid meadow so jump targeting is checked against known geometry.
+// Laid out around the probe point (400, 300):
+//   here  at (400,300) d=0     west at (340,300) d=60 due west
+//   north at (400,230) d=70    east at (480,300) d=80 due east
+//   far   at (700,300) d=300 due east
+const jumpWorld = {
+  width: 800,
+  height: 600,
+  top: 0,
+  cover: [
+    { x: 400, y: 300, radius: 30, type: 'rock', name: 'here' },
+    { x: 340, y: 300, radius: 30, type: 'grass', name: 'west' },
+    { x: 400, y: 230, radius: 30, type: 'leaf', name: 'north' },
+    { x: 480, y: 300, radius: 30, type: 'leaf', name: 'east' },
+    { x: 700, y: 300, radius: 30, type: 'leaf', name: 'far' },
+  ],
+};
+
+const byName = (name) => jumpWorld.cover.find((c) => c.name === name);
+
+test('nearestCover returns the closest piece in range', () => {
+  assert.equal(nearestCover(jumpWorld, 400, 300, { maxDistance: 320 }).name, 'here');
+});
+
+test('nearestCover ignores the piece the cricket is already standing in', () => {
+  const found = nearestCover(jumpWorld, 400, 300, { maxDistance: 320, exclude: byName('here') });
+  assert.equal(found.name, 'west', 'west is 60 away, the next closest');
+});
+
+test('nearestCover returns null when everything is out of range', () => {
+  assert.equal(nearestCover(jumpWorld, 400, 300, { maxDistance: 10, exclude: byName('here') }), null);
+  assert.equal(nearestCover({ ...jumpWorld, cover: [] }, 400, 300, { maxDistance: 320 }), null);
+});
+
+test('a held direction picks cover that way even when a closer piece is behind', () => {
+  const found = nearestCover(jumpWorld, 400, 300, {
+    maxDistance: 320, exclude: byName('here'), dirX: 1, dirY: 0,
+  });
+  assert.equal(found.name, 'east', 'west and north are nearer but outside the cone');
+});
+
+test('a held direction still takes the nearest of several pieces that way', () => {
+  const found = nearestCover(jumpWorld, 200, 300, { maxDistance: 600, dirX: 1, dirY: 0 });
+  assert.equal(found.name, 'west', 'nearest of the four pieces lying east of the probe');
+});
+
+test('a direction with no cover in its cone falls back to the nearest overall', () => {
+  const found = nearestCover(jumpWorld, 400, 300, {
+    maxDistance: 320, exclude: byName('here'), dirX: 0, dirY: 1,
+  });
+  assert.equal(found.name, 'west', 'nothing lies south, so plain range wins');
+});
+
+test('the direction cone is limited by halfAngleDegrees', () => {
+  const wide = nearestCover(jumpWorld, 400, 300, {
+    maxDistance: 320, exclude: byName('here'), dirX: 1, dirY: 0, halfAngleDegrees: 100,
+  });
+  assert.equal(wide.name, 'north', 'a cone past 90 degrees admits the piece off to the side');
+
+  const narrow = nearestCover(jumpWorld, 400, 300, {
+    maxDistance: 320, exclude: byName('here'), dirX: 1, dirY: 0, halfAngleDegrees: 20,
+  });
+  assert.equal(narrow.name, 'east');
 });

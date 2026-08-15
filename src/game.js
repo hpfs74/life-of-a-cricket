@@ -5,6 +5,9 @@ import { createFoodField, updateFood, consumeFood } from './food.js';
 import { spawnBird, updateBird } from './birds.js';
 import { createScore, tickSong, breakSong, tickFed, eat, commitHighScore } from './score.js';
 import { createAttention, tickAttention, resetAttention } from './attention.js';
+import { dayAt, isNight } from './daylight.js';
+
+export { dayAt, isNight };
 
 /** Ramps linearly from 1 to the cap over the ramp window, then holds. */
 export function difficultyAt(elapsedSeconds) {
@@ -26,9 +29,24 @@ export function createGame({ storage, rng = Math.random } = {}) {
     attention: createAttention(),
     lives: CONFIG.game.startingLives,
     elapsed: 0,
+    day: 1,
+    night: false,
+    patrolTimer: 0,
     hidden: false,
     newRecord: false,
   };
+}
+
+/** Opens the credits from the menu. Only reachable when a run is not in progress. */
+export function showCredits(game) {
+  if (game.phase === 'PLAYING') return;
+  game.phase = 'CREDITS';
+}
+
+/** Returns from the credits to the menu. */
+export function closeCredits(game) {
+  if (game.phase !== 'CREDITS') return;
+  game.phase = 'MENU';
 }
 
 export function startRun(game) {
@@ -44,6 +62,9 @@ export function startRun(game) {
   game.attention = createAttention();
   game.lives = CONFIG.game.startingLives;
   game.elapsed = 0;
+  game.day = 1;
+  game.night = false;
+  game.patrolTimer = 0;
   game.hidden = false;
   game.newRecord = false;
 }
@@ -58,6 +79,8 @@ export function updateGame(game, intent, dt) {
 
   const events = [];
   game.elapsed += dt;
+  game.day = dayAt(game.elapsed);
+  game.night = isNight(game.elapsed);
 
   const cricketEvents = updateCricket(game.cricket, intent, dt, game.world);
   game.hidden = cricketEvents.hidden;
@@ -67,6 +90,8 @@ export function updateGame(game, intent, dt) {
     breakSong(game.score);
     events.push({ type: 'song-break' });
   }
+  if (cricketEvents.startedJump) events.push({ type: 'jump' });
+  if (cricketEvents.landed) events.push({ type: 'land' });
 
   // Singing from cover is loud but scores nothing — cover is safety, not points.
   const scoringSong = game.cricket.singing && !game.hidden;
@@ -76,16 +101,33 @@ export function updateGame(game, intent, dt) {
   const { spawned } = tickAttention(game.attention, game.cricket.singing, dt);
   const difficulty = difficultyAt(game.elapsed);
 
-  for (let i = 0; i < spawned; i += 1) {
+  // Birds also patrol on their own schedule, so silence is quieter but never
+  // safe. The patrol clock speeds up with difficulty.
+  game.patrolTimer += dt;
+  const patrolInterval = CONFIG.game.patrolIntervalSeconds / difficulty;
+  let patrols = 0;
+  while (game.patrolTimer >= patrolInterval) {
+    game.patrolTimer -= patrolInterval;
+    patrols += 1;
+  }
+
+  // Birds hunt the meadow by day; bats take the night shift.
+  const kind = game.night ? 'bat' : 'bird';
+
+  for (let i = 0; i < spawned + patrols; i += 1) {
     if (game.birds.length >= CONFIG.bird.maxAlive) break;
-    game.birds.push(spawnBird(game.world, game.rng, difficulty));
-    events.push({ type: 'bird-spawn' });
+    const bird = spawnBird(game.world, game.rng, difficulty, kind);
+    game.birds.push(bird);
+    events.push({ type: 'bird-spawn', bird, kind });
   }
 
   updateFood(game.food, dt, game.world, game.rng);
-  for (const item of consumeFood(game.food, game.cricket)) {
-    eat(game.score, item.value);
-    events.push({ type: 'ate', food: item });
+  // A cricket in mid-leap flies over food rather than eating it.
+  if (!game.cricket.jumping) {
+    for (const item of consumeFood(game.food, game.cricket)) {
+      eat(game.score, item.value);
+      events.push({ type: 'ate', food: item });
+    }
   }
 
   const context = {
@@ -93,6 +135,7 @@ export function updateGame(game, intent, dt) {
     cricket: game.cricket,
     hidden: game.hidden,
     singing: game.cricket.singing,
+    airborne: game.cricket.jumping,
   };
 
   const survivors = [];
@@ -102,7 +145,7 @@ export function updateGame(game, intent, dt) {
     const event = updateBird(bird, dt, context);
 
     if (previousState === 'CIRCLE' && bird.state === 'DIVE') {
-      events.push({ type: 'bird-cry', bird });
+      events.push({ type: 'bird-cry', bird, kind: bird.kind });
     }
 
     if (event === 'hit' && game.cricket.invulnerableFor <= 0) {

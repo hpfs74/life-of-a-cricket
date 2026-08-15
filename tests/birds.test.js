@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { CONFIG } from '../src/config.js';
-import { spawnBird, updateBird } from '../src/birds.js';
+import { spawnBird, updateBird, kindConfig } from '../src/birds.js';
 
 const world = { width: 800, height: 600, top: 0, cover: [] };
 const rng = () => 0.5;
@@ -120,4 +120,56 @@ test('a retreating bird eventually reports that it is gone', () => {
   const event = runUntilStateChange(bird, ctx);
   assert.equal(bird.state, 'GONE');
   assert.equal(event, 'gone');
+});
+
+test('a dive that lands on an airborne cricket misses it', () => {
+  const bird = spawnBird(world, rng, 1);
+  const ctx = context();
+
+  runUntilStateChange(bird, ctx);
+  runUntilStateChange(bird, ctx);
+  assert.equal(bird.state, 'DIVE');
+
+  // The cricket leaps just as the bird commits.
+  ctx.airborne = true;
+  const event = runUntilStateChange(bird, ctx);
+
+  assert.equal(event, 'missed', 'a leap should dodge a committed dive');
+  assert.equal(bird.state, 'RETREAT');
+});
+
+test('a dive still connects with a grounded cricket', () => {
+  const bird = spawnBird(world, rng, 1);
+  const ctx = context({ airborne: false });
+
+  runUntilStateChange(bird, ctx);
+  runUntilStateChange(bird, ctx);
+  assert.equal(runUntilStateChange(bird, ctx), 'hit');
+});
+
+test('predators default to day birds and can be spawned as bats', () => {
+  assert.equal(spawnBird(world, rng, 1).kind, 'bird');
+  assert.equal(spawnBird(world, rng, 1, 'bat').kind, 'bat');
+});
+
+test('bats commit to a dive sooner than birds do', () => {
+  const measure = (kind) => {
+    const predator = spawnBird(world, rng, 1, kind);
+    const ctx = context();
+    runUntilStateChange(predator, ctx);
+    assert.equal(predator.state, 'CIRCLE');
+
+    let frames = 0;
+    while (predator.state === 'CIRCLE' && frames < 5000) {
+      updateBird(predator, 1 / 60, ctx);
+      frames += 1;
+    }
+    return frames;
+  };
+
+  assert.ok(measure('bat') < measure('bird'), 'a bat should scan for less time');
+});
+
+test('an unknown kind falls back to the day bird tuning', () => {
+  assert.deepEqual(kindConfig('moth'), CONFIG.bird.kinds.bird);
 });

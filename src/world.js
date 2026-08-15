@@ -74,6 +74,46 @@ export function isHidden(world, x, y) {
 }
 
 /**
+ * Picks the cover a jump should land on.
+ *
+ * A held direction narrows the search to a cone, so the player steers the leap
+ * rather than always being pulled to whatever happens to be closest. If nothing
+ * lies inside that cone the search widens to everything in range — better to
+ * leap somewhere useful than to refuse the input.
+ */
+export function nearestCover(world, x, y, options = {}) {
+  const {
+    maxDistance = Infinity,
+    dirX = 0,
+    dirY = 0,
+    halfAngleDegrees = CONFIG.cricket.jump.halfAngleDegrees,
+    exclude = null,
+  } = options;
+
+  const inRange = world.cover
+    .filter((item) => item !== exclude)
+    .map((item) => ({ item, distance: Math.hypot(item.x - x, item.y - y) }))
+    .filter((candidate) => candidate.distance <= maxDistance);
+
+  if (inRange.length === 0) return null;
+
+  const closest = (candidates) =>
+    candidates.reduce((best, candidate) => (candidate.distance < best.distance ? candidate : best)).item;
+
+  const magnitude = Math.hypot(dirX, dirY);
+  if (magnitude === 0) return closest(inRange);
+
+  const cosLimit = Math.cos((halfAngleDegrees * Math.PI) / 180);
+  const inCone = inRange.filter(({ item, distance }) => {
+    if (distance === 0) return true;
+    const dot = ((item.x - x) * dirX + (item.y - y) * dirY) / (distance * magnitude);
+    return dot >= cosLimit;
+  });
+
+  return closest(inCone.length > 0 ? inCone : inRange);
+}
+
+/**
  * Finds a point in the open ground, at least `minDistanceFromCover` away from
  * every piece of cover, so food never spawns somewhere the player can eat it
  * without ever leaving safety. Falls back to the last candidate if the meadow

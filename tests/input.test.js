@@ -52,16 +52,41 @@ test('opposite keys held together cancel out', () => {
   assert.equal(input.intent.dx, 0);
 });
 
-test('space sets and clears the sing flag', () => {
+test('E sets and clears the sing flag', () => {
+  const target = fakeTarget();
+  const input = createInput(target);
+  input.attach();
+
+  target.emit('keydown', { code: 'KeyE' });
+  assert.equal(input.intent.sing, true);
+
+  target.emit('keyup', { code: 'KeyE' });
+  assert.equal(input.intent.sing, false);
+});
+
+test('space drives jump, not sing', () => {
   const target = fakeTarget();
   const input = createInput(target);
   input.attach();
 
   target.emit('keydown', { code: 'Space' });
-  assert.equal(input.intent.sing, true);
+  assert.equal(input.intent.jump, true);
+  assert.equal(input.intent.sing, false, 'space must no longer sing');
 
   target.emit('keyup', { code: 'Space' });
-  assert.equal(input.intent.sing, false);
+  assert.equal(input.intent.jump, false);
+});
+
+test('space does not start a run, so a menu press cannot launch a leap', () => {
+  const target = fakeTarget();
+  const input = createInput(target);
+  input.attach();
+
+  target.emit('keydown', { code: 'Space' });
+  assert.equal(input.consumeStartRequest(), false);
+
+  target.emit('keydown', { code: 'Enter' });
+  assert.equal(input.consumeStartRequest(), true);
 });
 
 test('a start request is raised once and consumed once', () => {
@@ -94,9 +119,39 @@ test('losing focus releases every held key', () => {
   input.attach();
 
   target.emit('keydown', { code: 'KeyD' });
+  target.emit('keydown', { code: 'KeyE' });
   target.emit('keydown', { code: 'Space' });
   target.emit('blur');
 
   assert.equal(input.intent.dx, 0);
   assert.equal(input.intent.sing, false);
+  assert.equal(input.intent.jump, false);
+});
+
+test('C requests the credits and ESC requests going back, each consumed once', () => {
+  const target = fakeTarget();
+  const input = createInput(target);
+  input.attach();
+
+  assert.equal(input.consumeCreditsRequest(), false);
+  target.emit('keydown', { code: 'KeyC' });
+  assert.equal(input.consumeCreditsRequest(), true);
+  assert.equal(input.consumeCreditsRequest(), false);
+
+  assert.equal(input.consumeBackRequest(), false);
+  target.emit('keydown', { code: 'Escape' });
+  assert.equal(input.consumeBackRequest(), true);
+  assert.equal(input.consumeBackRequest(), false);
+});
+
+test('C does not move, sing or jump the cricket', () => {
+  const target = fakeTarget();
+  const input = createInput(target);
+  input.attach();
+
+  target.emit('keydown', { code: 'KeyC' });
+  assert.deepEqual(
+    { dx: input.intent.dx, dy: input.intent.dy, sing: input.intent.sing, jump: input.intent.jump },
+    { dx: 0, dy: 0, sing: false, jump: false },
+  );
 });

@@ -1,10 +1,16 @@
 import { CONFIG } from './config.js';
 
+/** Per-kind tuning, falling back to the day bird for anything unrecognised. */
+export function kindConfig(kind) {
+  return CONFIG.bird.kinds[kind] ?? CONFIG.bird.kinds.bird;
+}
+
 /**
- * Creates a bird just outside a random edge of the meadow.
+ * Creates an aerial predator just outside a random edge of the meadow.
  * `difficulty` (1 upward) scales every speed, which is how the game ramps.
+ * `kind` is 'bird' by day and 'bat' by night; both share this state machine.
  */
-export function spawnBird(world, rng = Math.random, difficulty = 1) {
+export function spawnBird(world, rng = Math.random, difficulty = 1, kind = 'bird') {
   const edge = Math.floor(rng() * 4) % 4;
   const margin = 120;
 
@@ -22,12 +28,13 @@ export function spawnBird(world, rng = Math.random, difficulty = 1) {
     y: start.y,
     vx: 0,
     vy: 0,
+    kind,
     state: 'ENTER',
     stateTime: 0,
     angle: rng() * Math.PI * 2,
     targetX: 0,
     targetY: 0,
-    speedScale: difficulty,
+    speedScale: difficulty * kindConfig(kind).speedScale,
     centerX: world.width / 2,
     // Birds orbit over the playable ground, not over the empty sky band.
     centerY: world.top + (world.height - world.top) / 2,
@@ -85,7 +92,8 @@ export function updateBird(bird, dt, context) {
       bird.x = nextX;
       bird.y = nextY;
 
-      if (bird.stateTime < CONFIG.bird.circleSeconds) return 'none';
+      const circleSeconds = CONFIG.bird.circleSeconds * kindConfig(bird.kind).circleSecondsScale;
+      if (bird.stateTime < circleSeconds) return 'none';
 
       // Scan: cover only saves a cricket that keeps quiet.
       if (context.hidden && !context.singing) {
@@ -114,7 +122,11 @@ export function updateBird(bird, dt, context) {
         context.cricket.y - bird.y,
       );
       enterState(bird, 'RETREAT');
-      return distanceToCricket <= CONFIG.bird.hitRadius ? 'hit' : 'missed';
+
+      // A cricket in mid-leap passes under the strike: timing a jump is the
+      // other way out of a dive, alongside hiding quietly.
+      const connects = distanceToCricket <= CONFIG.bird.hitRadius && !context.airborne;
+      return connects ? 'hit' : 'missed';
     }
 
     case 'RETREAT': {

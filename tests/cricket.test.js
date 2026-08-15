@@ -106,3 +106,131 @@ test('invulnerability counts down and never goes negative', () => {
   updateCricket(cricket, still, 0.5, openWorld);
   assert.equal(cricket.invulnerableFor, 0);
 });
+
+// A meadow with two pieces of cover either side of the spawn point, for jumps.
+const jumpWorld = {
+  width: 800,
+  height: 600,
+  top: 0,
+  cover: [
+    { x: 560, y: 300, radius: 30, type: 'leaf' },
+    { x: 260, y: 300, radius: 30, type: 'rock' },
+  ],
+};
+
+const jumpPress = { dx: 0, dy: 0, sing: false, jump: true };
+const jumpHeld = { dx: 0, dy: 0, sing: false, jump: true };
+
+/** Steps the cricket until it lands, returning the events of the landing frame. */
+function runUntilLanded(cricket, world, dt = 1 / 60, maxSteps = 500) {
+  let steps = 0;
+  let events = null;
+  while (cricket.jumping && steps < maxSteps) {
+    events = updateCricket(cricket, { dx: 0, dy: 0, sing: false, jump: true }, dt, world);
+    steps += 1;
+  }
+  assert.ok(steps < maxSteps, 'the cricket never landed');
+  return events;
+}
+
+test('pressing jump leaps to the nearest cover and lands hidden', () => {
+  const cricket = createCricket(jumpWorld);
+  const events = updateCricket(cricket, jumpPress, 1 / 60, jumpWorld);
+
+  assert.equal(cricket.jumping, true);
+  assert.equal(events.startedJump, true);
+
+  const landing = runUntilLanded(cricket, jumpWorld);
+  assert.equal(cricket.jumping, false);
+  assert.equal(landing.landed, true);
+  assert.equal(landing.hidden, true, 'landed inside cover');
+  assert.ok(Math.abs(cricket.x - 560) < 0.001 || Math.abs(cricket.x - 260) < 0.001);
+});
+
+test('a held direction steers the leap to cover that way', () => {
+  const cricket = createCricket(jumpWorld);
+  updateCricket(cricket, { dx: -1, dy: 0, sing: false, jump: true }, 1 / 60, jumpWorld);
+  runUntilLanded(cricket, jumpWorld);
+
+  assert.ok(Math.abs(cricket.x - 260) < 0.001, `landed at ${cricket.x}, expected the western rock`);
+});
+
+test('with no cover in range the cricket hops forward instead', () => {
+  const bare = { width: 800, height: 600, top: 0, cover: [] };
+  const cricket = createCricket(bare);
+  cricket.dirX = 1;
+  cricket.dirY = 0;
+
+  updateCricket(cricket, jumpPress, 1 / 60, bare);
+  assert.equal(cricket.jumping, true);
+  runUntilLanded(cricket, bare);
+
+  assert.ok(
+    Math.abs(cricket.x - (400 + CONFIG.cricket.jump.fallbackDistance)) < 0.001,
+    `hopped to ${cricket.x}`,
+  );
+});
+
+test('the cricket cannot steer, sing or re-jump while airborne', () => {
+  const cricket = createCricket(jumpWorld);
+  updateCricket(cricket, jumpPress, 1 / 60, jumpWorld);
+
+  const midX = cricket.x;
+  const events = updateCricket(cricket, { dx: -1, dy: -1, sing: true, jump: true }, 1 / 60, jumpWorld);
+
+  assert.equal(cricket.singing, false, 'cannot sing mid-air');
+  assert.equal(events.startedJump, false, 'cannot re-trigger mid-air');
+  assert.ok(cricket.x !== midX, 'the arc keeps advancing regardless of input');
+  assert.ok(cricket.y > jumpWorld.top);
+});
+
+test('jumping breaks an in-progress song', () => {
+  const cricket = createCricket(jumpWorld);
+  updateCricket(cricket, { dx: 0, dy: 0, sing: true, jump: false }, 0.5, jumpWorld);
+  assert.equal(cricket.singing, true);
+
+  const events = updateCricket(cricket, { dx: 0, dy: 0, sing: true, jump: true }, 1 / 60, jumpWorld);
+  assert.equal(cricket.singing, false);
+  assert.equal(events.stoppedSinging, true);
+  assert.equal(events.startedJump, true);
+});
+
+test('holding the jump key does not chain jumps: it needs a fresh press', () => {
+  const cricket = createCricket(jumpWorld);
+  updateCricket(cricket, jumpHeld, 1 / 60, jumpWorld);
+  runUntilLanded(cricket, jumpWorld);
+
+  // Key still held, cooldown expired: must not re-launch.
+  for (let i = 0; i < 120; i += 1) updateCricket(cricket, jumpHeld, 1 / 60, jumpWorld);
+  assert.equal(cricket.jumping, false, 'a held key re-triggered the jump');
+  assert.equal(cricket.jumpCooldown, 0);
+
+  // Release, then press again.
+  updateCricket(cricket, { dx: 0, dy: 0, sing: false, jump: false }, 1 / 60, jumpWorld);
+  const events = updateCricket(cricket, jumpPress, 1 / 60, jumpWorld);
+  assert.equal(events.startedJump, true);
+});
+
+test('a fresh press during the cooldown is refused', () => {
+  const cricket = createCricket(jumpWorld);
+  updateCricket(cricket, jumpPress, 1 / 60, jumpWorld);
+  runUntilLanded(cricket, jumpWorld);
+
+  assert.ok(cricket.jumpCooldown > 0, 'landing starts a cooldown');
+
+  updateCricket(cricket, { dx: 0, dy: 0, sing: false, jump: false }, 1 / 60, jumpWorld);
+  const blocked = updateCricket(cricket, jumpPress, 1 / 60, jumpWorld);
+  assert.equal(blocked.startedJump, false);
+  assert.equal(cricket.jumping, false);
+});
+
+test('an airborne cricket is never reported as hidden, even over cover', () => {
+  const cricket = createCricket(jumpWorld);
+  updateCricket(cricket, jumpPress, 1 / 60, jumpWorld);
+
+  cricket.x = 560;
+  cricket.y = 300;
+  const events = updateCricket(cricket, jumpPress, 1 / 60, jumpWorld);
+  assert.equal(cricket.jumping, true);
+  assert.equal(events.hidden, false, 'mid-air over cover still counts as exposed');
+});

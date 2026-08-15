@@ -1,14 +1,71 @@
 import { CONFIG } from '../config.js';
+import { darknessAt, phaseOfDay } from '../daylight.js';
 
-/** Dusk deepens over the run, so the sky doubles as a clock. */
-function skyStops(elapsed) {
-  const dusk = Math.min(1, elapsed / (CONFIG.game.difficultyRampSeconds * 1.5));
-  const lerp = (a, b) => Math.round(a + (b - a) * dusk);
+/** The sky is the clock: it cycles from noon through midnight and back. */
+function skyStops(darkness) {
+  const lerp = (a, b) => Math.round(a + (b - a) * darkness);
 
   return {
-    top: `rgb(${lerp(122, 30)}, ${lerp(170, 40)}, ${lerp(210, 78)})`,
-    bottom: `rgb(${lerp(246, 92)}, ${lerp(203, 62)}, ${lerp(150, 86)})`,
+    top: `rgb(${lerp(122, 10)}, ${lerp(170, 14)}, ${lerp(210, 34)})`,
+    bottom: `rgb(${lerp(246, 38)}, ${lerp(203, 33)}, ${lerp(150, 62)})`,
   };
+}
+
+/**
+ * Stars fade in as it darkens. Positions are hashed off the index so the
+ * constellation is the same every night without storing anything.
+ */
+function drawStars(ctx, width, horizon, darkness, time) {
+  const alpha = Math.max(0, darkness * 1.5 - 0.35);
+  if (alpha <= 0) return;
+
+  for (let i = 0; i < 70; i += 1) {
+    const hx = Math.sin(i * 78.233) * 43758.5453;
+    const hy = Math.sin(i * 12.9898) * 24634.6345;
+    const x = (hx - Math.floor(hx)) * width;
+    const y = (hy - Math.floor(hy)) * horizon * 0.92;
+    const twinkle = 0.6 + Math.sin(time * 1.7 + i) * 0.4;
+
+    ctx.fillStyle = `rgba(255, 253, 235, ${alpha * twinkle})`;
+    ctx.fillRect(x, y, 2, 2);
+  }
+}
+
+/** One body crosses the sky each day: the sun, then the moon opposite it. */
+function drawCelestialBody(ctx, width, horizon, phase) {
+  const x = width * (0.12 + 0.76 * phase);
+  const swing = Math.cos(phase * Math.PI * 2) * horizon * 0.4;
+  const sunY = horizon * 0.62 - swing;
+  const moonY = horizon * 0.62 + swing;
+
+  if (sunY < horizon) {
+    const glow = ctx.createRadialGradient(x, sunY, 4, x, sunY, 68);
+    glow.addColorStop(0, 'rgba(255, 236, 170, 0.85)');
+    glow.addColorStop(1, 'rgba(255, 214, 130, 0)');
+    ctx.fillStyle = glow;
+    ctx.beginPath();
+    ctx.arc(x, sunY, 68, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = '#fff2c4';
+    ctx.beginPath();
+    ctx.arc(x, sunY, 20, 0, Math.PI * 2);
+    ctx.fill();
+    return;
+  }
+
+  if (moonY < horizon) {
+    ctx.fillStyle = 'rgba(226, 232, 245, 0.95)';
+    ctx.beginPath();
+    ctx.arc(x, moonY, 17, 0, Math.PI * 2);
+    ctx.fill();
+
+    // A bite out of the disc makes a crescent without a second gradient.
+    ctx.fillStyle = 'rgba(10, 14, 34, 0.92)';
+    ctx.beginPath();
+    ctx.arc(x + 8, moonY - 5, 15, 0, Math.PI * 2);
+    ctx.fill();
+  }
 }
 
 function drawCover(ctx, item, time) {
@@ -70,7 +127,9 @@ function drawCover(ctx, item, time) {
 
 export function drawBackground(ctx, game, time) {
   const { width, height, top: horizon } = game.world;
-  const sky = skyStops(game.elapsed);
+  const darkness = darknessAt(game.elapsed);
+  const phase = phaseOfDay(game.elapsed);
+  const sky = skyStops(darkness);
 
   const gradient = ctx.createLinearGradient(0, 0, 0, horizon);
   gradient.addColorStop(0, sky.top);
@@ -78,9 +137,19 @@ export function drawBackground(ctx, game, time) {
   ctx.fillStyle = gradient;
   ctx.fillRect(0, 0, width, horizon);
 
+  drawStars(ctx, width, horizon, darkness, time);
+  drawCelestialBody(ctx, width, horizon, phase);
+
+  // The ground dims with the sky, but never to pure black: the player still
+  // has to read cover and food at midnight.
+  const dim = (r, g, b) => {
+    const k = 1 - darkness * 0.62;
+    return `rgb(${Math.round(r * k)}, ${Math.round(g * k)}, ${Math.round(b * k)})`;
+  };
+
   const ground = ctx.createLinearGradient(0, horizon, 0, height);
-  ground.addColorStop(0, '#3f5a34');
-  ground.addColorStop(1, '#22331f');
+  ground.addColorStop(0, dim(63, 90, 52));
+  ground.addColorStop(1, dim(34, 51, 31));
   ctx.fillStyle = ground;
   ctx.fillRect(0, horizon, width, height - horizon);
 
