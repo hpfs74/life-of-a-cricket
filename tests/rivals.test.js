@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { CONFIG } from '../src/config.js';
-import { createRivals, updateRivals } from '../src/rivals.js';
+import { createRivals, updateRivals, resolveStrike, spawnRival } from '../src/rivals.js';
 
 const world = { width: 1200, height: 600, top: 168, cover: [] };
 const rng = () => 0.5;
@@ -105,4 +105,79 @@ test('a swarm clears a field of food given time', () => {
 
   for (let i = 0; i < 60 * 60; i += 1) updateRivals(rivals, 1 / 60, world, food, Math.random);
   assert.equal(food.items.length, 0, `${food.items.length} items were never eaten`);
+});
+
+function striker(x, y, dirX = 1, dirY = 0) {
+  return { x, y, dirX, dirY };
+}
+
+test('bugs start with the health their kind deserves', () => {
+  const rivals = createRivals(world, rng);
+  for (const rival of rivals) {
+    assert.equal(rival.health, CONFIG.rivals.health[rival.kind]);
+  }
+});
+
+test('a swing hits the nearest bug in front and misses what is behind', () => {
+  const behind = { ...createRivals(world, rng)[0], x: 460, y: 300, kind: 'ant', health: 1 };
+  const ahead = { ...createRivals(world, rng)[0], x: 520, y: 300, kind: 'ant', health: 1 };
+  const rivals = [behind, ahead];
+
+  const result = resolveStrike(striker(500, 300), rivals);
+
+  assert.equal(result.hit, ahead, 'it should have hit the bug it was facing');
+  assert.equal(result.killed, true);
+  assert.ok(rivals.includes(behind), 'the bug behind should be untouched');
+});
+
+test('a swing at empty air reports nothing', () => {
+  const rivals = [{ ...createRivals(world, rng)[0], x: 900, y: 300, kind: 'ant', health: 1 }];
+  const result = resolveStrike(striker(100, 300), rivals);
+
+  assert.equal(result.hit, null);
+  assert.equal(result.killed, false);
+  assert.equal(rivals.length, 1);
+});
+
+test('an ant dies in one hit', () => {
+  const ant = { ...createRivals(world, rng)[0], x: 520, y: 300, kind: 'ant', health: 1 };
+  const rivals = [ant];
+
+  const result = resolveStrike(striker(500, 300), rivals);
+  assert.equal(result.killed, true);
+  assert.equal(result.retaliated, false);
+  assert.equal(rivals.length, 0, 'the corpse should be removed');
+});
+
+test('a beetle takes two hits, and bites back after the first', () => {
+  const beetle = { ...createRivals(world, rng)[0], x: 520, y: 300, kind: 'beetle', health: 2, flashFor: 0 };
+  const rivals = [beetle];
+
+  const first = resolveStrike(striker(500, 300), rivals);
+  assert.equal(first.killed, false, 'a beetle should survive one hit');
+  assert.equal(first.retaliated, true, 'and bite back for it');
+  assert.equal(beetle.health, 1);
+  assert.ok(beetle.flashFor > 0, 'it should flash so the hit reads');
+  assert.equal(rivals.length, 1);
+
+  const second = resolveStrike(striker(500, 300), rivals);
+  assert.equal(second.killed, true);
+  assert.equal(second.retaliated, false, 'a dead beetle cannot bite');
+  assert.equal(rivals.length, 0);
+});
+
+test('the hit flash fades on its own', () => {
+  const rivals = [{ ...createRivals(world, rng)[0], x: 520, y: 300, kind: 'beetle', health: 2, flashFor: 0 }];
+  resolveStrike(striker(500, 300), rivals);
+
+  const field = fieldWith([]);
+  for (let i = 0; i < 60; i += 1) updateRivals(rivals, 1 / 60, world, field, rng);
+  assert.equal(rivals[0].flashFor, 0);
+});
+
+test('spawnRival drops a fresh bug on open ground', () => {
+  const rival = spawnRival(world, rng, 1);
+  assert.ok(rival.x >= 0 && rival.x <= world.width);
+  assert.ok(rival.y >= world.top && rival.y <= world.height);
+  assert.equal(rival.health, CONFIG.rivals.health[rival.kind]);
 });

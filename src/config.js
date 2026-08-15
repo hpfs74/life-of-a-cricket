@@ -27,6 +27,14 @@ export const CONFIG = {
     speed: 190,
     invulnerableSeconds: 1.6,
 
+    // A short jab in front of the cricket. Deliberate, not a held blender.
+    strike: {
+      reach: 34,
+      halfAngleDegrees: 70,
+      cooldownSeconds: 0.35,
+      swingSeconds: 0.14,
+    },
+
     jump: {
       range: 320,
       // Half-angle of the cone a held direction restricts the search to.
@@ -61,7 +69,14 @@ export const CONFIG = {
       lettuce: { value: 45, radius: 12 },
       berry: { value: 60, radius: 9 },
       aphid: { value: 120, radius: 7 },
+      // Only ever left behind by a killed bug, never spawned by the meadow.
+      grub: { value: 90, radius: 8 },
     },
+    naturalTypes: ['seed', 'lettuce', 'berry', 'aphid'],
+    // A dropped grub lands at arm's length from whoever killed for it. Without
+    // a moment to settle it would be swallowed on the same frame and the player
+    // would never see the drop at all.
+    dropSettleSeconds: 0.35,
   },
 
   // A stream and a pond or two. Water is stored as overlapping circles: cheap
@@ -100,6 +115,14 @@ export const CONFIG = {
   // they eat the same food, so dawdling costs points.
   rivals: {
     count: 6,
+    // Ants scatter at a touch; beetles need finishing, and bite if you fail.
+    health: { ant: 1, beetle: 2 },
+    // What a corpse leaves behind. A beetle pays double for the second hit.
+    drops: { ant: 1, beetle: 2 },
+    biteStunSeconds: 0.6,
+    biteKnockback: 26,
+    // Bugs wander back in from the long grass, so the meadow is never farmed out.
+    respawnSeconds: 8,
     speed: 58,
     radius: 7,
     eatRadius: 13,
@@ -113,6 +136,8 @@ export const CONFIG = {
     risePerSecond: 0.22,
     decayPerSecond: 0.12,
     thresholds: [0.3, 0.55, 0.8],
+    // Swinging is loud: a long scrap draws predators just as singing does.
+    perStrike: 0.05,
     rearmMargin: 0.06,
   },
 

@@ -129,3 +129,27 @@ test('losing focus releases every held key', () => {
 });
 
 
+
+test('F drives the strike, separately from singing and leaping', () => {
+  const target = fakeTarget();
+  const input = createInput(target);
+  input.attach();
+
+  target.emit('keydown', { code: 'KeyF' });
+  assert.equal(input.intent.strike, true);
+  assert.equal(input.intent.sing, false);
+  assert.equal(input.intent.jump, false);
+
+  target.emit('keyup', { code: 'KeyF' });
+  assert.equal(input.intent.strike, false);
+});
+
+test('losing focus drops the strike key too', () => {
+  const target = fakeTarget();
+  const input = createInput(target);
+  input.attach();
+
+  target.emit('keydown', { code: 'KeyF' });
+  target.emit('blur');
+  assert.equal(input.intent.strike, false);
+});

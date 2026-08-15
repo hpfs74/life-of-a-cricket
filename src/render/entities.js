@@ -5,6 +5,7 @@ const FOOD_COLORS = {
   berry: '#c4426a',
   aphid: '#8fd36a',
   lettuce: '#b6dd7c',
+  grub: '#e8cdb0',
 };
 
 /** Lettuce is a ruffled rosette rather than a berry-like blob, so it reads apart. */
@@ -35,8 +36,36 @@ function drawLettuce(ctx, item, bob) {
   ctx.fill();
 }
 
+/** A grub: pale and segmented, so a hard-won drop does not look like a seed. */
+function drawGrub(ctx, item, bob) {
+  const cx = item.x;
+  const cy = item.y + bob;
+
+  ctx.fillStyle = FOOD_COLORS.grub;
+  ctx.beginPath();
+  ctx.ellipse(cx, cy, item.radius * 1.35, item.radius * 0.8, 0.2, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.strokeStyle = 'rgba(176, 140, 112, 0.8)';
+  ctx.lineWidth = 1;
+  for (let i = -1; i <= 1; i += 1) {
+    ctx.beginPath();
+    ctx.ellipse(cx + i * item.radius * 0.5, cy, item.radius * 0.24, item.radius * 0.7, 0.2, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+}
+
 function drawFood(ctx, item) {
   const bob = Math.sin(item.age * 3) * 1.5;
+
+  // A fresh drop glints while it settles, so the player sees it land.
+  if ((item.settleFor ?? 0) > 0) {
+    ctx.strokeStyle = `rgba(255, 245, 200, ${item.settleFor / CONFIG.food.dropSettleSeconds})`;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(item.x, item.y, item.radius + 8 + (1 - item.settleFor / CONFIG.food.dropSettleSeconds) * 8, 0, Math.PI * 2);
+    ctx.stroke();
+  }
 
   ctx.fillStyle = 'rgba(0, 0, 0, 0.25)';
   ctx.beginPath();
@@ -45,6 +74,11 @@ function drawFood(ctx, item) {
 
   if (item.type === 'lettuce') {
     drawLettuce(ctx, item, bob);
+    return;
+  }
+
+  if (item.type === 'grub') {
+    drawGrub(ctx, item, bob);
     return;
   }
 
@@ -160,6 +194,30 @@ function drawCricket(ctx, game, time) {
 
   ctx.restore();
 
+  if (cricket.swingFor > 0) {
+    // A bright arc sweeping the cone the strike actually covers.
+    const progress = 1 - cricket.swingFor / CONFIG.cricket.strike.swingSeconds;
+    const facing = Math.atan2(cricket.dirY, cricket.dirX);
+    const half = (CONFIG.cricket.strike.halfAngleDegrees * Math.PI) / 180;
+
+    ctx.strokeStyle = `rgba(255, 246, 214, ${0.85 * (1 - progress)})`;
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(cricket.x, cricket.y, CONFIG.cricket.strike.reach, facing - half, facing + half);
+    ctx.stroke();
+  }
+
+  if (cricket.stunnedFor > 0) {
+    // Stars, so a frozen cricket reads as stunned rather than as a hung game.
+    for (let i = 0; i < 3; i += 1) {
+      const angle = time * 6 + (i / 3) * Math.PI * 2;
+      ctx.fillStyle = 'rgba(255, 232, 150, 0.9)';
+      ctx.beginPath();
+      ctx.arc(cricket.x + Math.cos(angle) * 15, cricket.y - 24 + Math.sin(angle) * 5, 2.4, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
   if (cricket.singing) drawSongRings(ctx, cricket, game, time);
 }
 
@@ -273,7 +331,7 @@ function drawRival(ctx, rival, time) {
     }
   }
 
-  ctx.fillStyle = palette.body;
+  ctx.fillStyle = rival.flashFor > 0 ? '#fff0f0' : palette.body;
   if (rival.kind === 'beetle') {
     ctx.beginPath();
     ctx.ellipse(0, 0, r * 1.15, r * 0.85, 0, 0, Math.PI * 2);

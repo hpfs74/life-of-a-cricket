@@ -4,9 +4,10 @@ const UP = ['ArrowUp', 'KeyW'];
 const DOWN = ['ArrowDown', 'KeyS'];
 const SING = ['KeyE'];
 const JUMP = ['Space'];
+const STRIKE = ['KeyF'];
 const START = ['Enter', 'NumpadEnter'];
 
-const ALL_CODES = [...LEFT, ...RIGHT, ...UP, ...DOWN, ...SING, ...JUMP, ...START];
+const ALL_CODES = [...LEFT, ...RIGHT, ...UP, ...DOWN, ...SING, ...JUMP, ...STRIKE, ...START];
 
 /**
  * Turns keyboard events into a neutral intent object the simulation reads.
@@ -14,7 +15,7 @@ const ALL_CODES = [...LEFT, ...RIGHT, ...UP, ...DOWN, ...SING, ...JUMP, ...START
  */
 export function createInput(target) {
   const held = new Set();
-  const intent = { dx: 0, dy: 0, sing: false, jump: false };
+  const intent = { dx: 0, dy: 0, sing: false, jump: false, strike: false };
   let startRequested = false;
 
   function axis(negative, positive) {
@@ -30,6 +31,9 @@ export function createInput(target) {
     // Held, not one-shot: the cricket edge-detects this so a leaning key
     // cannot chain leaps.
     intent.jump = JUMP.some((code) => held.has(code));
+    // Held, not one-shot: the cricket edge-detects this too, so leaning on the
+    // key cannot machine-gun swings.
+    intent.strike = STRIKE.some((code) => held.has(code));
   }
 
   function onKeyDown(event) {

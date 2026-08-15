@@ -23,6 +23,11 @@ export function createCricket(world) {
     jumpToY: spawn.y,
     jumpCooldown: 0,
     jumpHeld: false,
+
+    strikeCooldown: 0,
+    strikeHeld: false,
+    swingFor: 0,
+    stunnedFor: 0,
   };
 }
 
@@ -149,11 +154,37 @@ export function updateCricket(cricket, intent, dt, world) {
   const wasJumping = cricket.jumping;
 
   cricket.invulnerableFor = Math.max(0, cricket.invulnerableFor - dt);
+  cricket.strikeCooldown = Math.max(0, cricket.strikeCooldown - dt);
+  cricket.swingFor = Math.max(0, cricket.swingFor - dt);
+  cricket.stunnedFor = Math.max(0, cricket.stunnedFor - dt);
 
   // A fresh press, not a held key: jumps never chain on their own.
   const jumpPressed = intent.jump === true;
   const freshPress = jumpPressed && !cricket.jumpHeld;
   cricket.jumpHeld = jumpPressed;
+
+  const strikePressed = intent.strike === true;
+  const freshStrike = strikePressed && !cricket.strikeHeld;
+  cricket.strikeHeld = strikePressed;
+
+  // A beetle's bite freezes the cricket outright: no moving, singing, leaping
+  // or swinging until it shakes it off.
+  if (cricket.stunnedFor > 0) {
+    cricket.singing = false;
+    cricket.moving = false;
+    cricket.songSeconds = 0;
+
+    return {
+      startedSinging: false,
+      stoppedSinging: wasSinging,
+      startedJump: false,
+      landed: wasJumping && !cricket.jumping,
+      startedStrike: false,
+      hidden: !cricket.jumping && isHidden(world, cricket.x, cricket.y),
+    };
+  }
+
+  let startedStrike = false;
 
   if (cricket.jumping) {
     cricket.jumpProgress = Math.min(1, cricket.jumpProgress + dt / cricket.jumpSeconds);
@@ -171,6 +202,14 @@ export function updateCricket(cricket, intent, dt, world) {
   } else {
     cricket.jumpCooldown = Math.max(0, cricket.jumpCooldown - dt);
 
+    if (freshStrike && cricket.strikeCooldown <= 0) {
+      cricket.swingFor = CONFIG.cricket.strike.swingSeconds;
+      cricket.strikeCooldown = CONFIG.cricket.strike.cooldownSeconds;
+      cricket.singing = false;
+      cricket.songSeconds = 0;
+      startedStrike = true;
+    }
+
     if (freshPress && cricket.jumpCooldown <= 0) {
       startJump(cricket, intent, world);
       cricket.singing = false;
@@ -180,7 +219,9 @@ export function updateCricket(cricket, intent, dt, world) {
       const magnitude = Math.hypot(intent.dx, intent.dy);
       const wantsToMove = magnitude > 0;
       cricket.moving = wantsToMove;
-      cricket.singing = intent.sing && !wantsToMove;
+      // A swing in progress silences the cricket, so a scrap really does break
+      // the song rather than the note resuming under the player's held key.
+      cricket.singing = intent.sing && !wantsToMove && cricket.swingFor <= 0;
 
       if (cricket.singing) {
         cricket.songSeconds += dt;
@@ -203,6 +244,7 @@ export function updateCricket(cricket, intent, dt, world) {
     stoppedSinging: !cricket.singing && wasSinging,
     startedJump: cricket.jumping && !wasJumping,
     landed: wasJumping && !cricket.jumping,
+    startedStrike,
     // Mid-air the cricket is above the grass, so cover cannot conceal it.
     hidden: !cricket.jumping && isHidden(world, cricket.x, cricket.y),
   };

@@ -489,3 +489,141 @@ test('food that the new stream swallowed is cleared away', () => {
     assert.equal(isWater(game.world, item.x, item.y), false, 'a crumb was left floating');
   }
 });
+
+const striking = { dx: 0, dy: 0, sing: false, jump: false, strike: true };
+const notStriking = { dx: 0, dy: 0, sing: false, jump: false, strike: false };
+
+/** Parks a bug of the given kind just in front of the cricket. */
+function bugInFront(game, kind) {
+  const bug = {
+    x: game.cricket.x + 20, y: game.cricket.y,
+    dirX: 1, dirY: 0, kind,
+    health: CONFIG.rivals.health[kind],
+    flashFor: 0, nibbleFor: 999, phase: 0,
+    targetX: 0, targetY: 0,
+  };
+  game.rivals = [bug];
+  game.cricket.dirX = 1;
+  game.cricket.dirY = 0;
+  return bug;
+}
+
+test('killing an ant leaves a grub where it fell', () => {
+  const game = newGame();
+  game.food.items = [];
+  const ant = bugInFront(game, 'ant');
+
+  const events = updateGame(game, striking, 1 / 60);
+
+  assert.ok(events.some((e) => e.type === 'bug-killed' && e.kind === 'ant'));
+  assert.equal(game.rivals.length, 0);
+  assert.equal(game.food.items.length, CONFIG.rivals.drops.ant);
+  assert.equal(game.food.items[0].type, 'grub');
+  assert.ok(Math.hypot(game.food.items[0].x - ant.x, game.food.items[0].y - ant.y) < 30);
+});
+
+test('a beetle takes two swings and stuns the cricket in between', () => {
+  const game = newGame();
+  game.food.items = [];
+  bugInFront(game, 'beetle');
+
+  const first = updateGame(game, striking, 1 / 60);
+  assert.ok(first.some((e) => e.type === 'bug-hit'));
+  assert.ok(first.some((e) => e.type === 'stunned'));
+  assert.ok(game.cricket.stunnedFor > 0);
+  assert.equal(game.rivals.length, 1, 'it should still be standing');
+
+  // Shake off the stun, then finish it.
+  for (let i = 0; i < 60; i += 1) updateGame(game, notStriking, 1 / 60);
+  assert.equal(game.cricket.stunnedFor, 0);
+
+  game.rivals[0].x = game.cricket.x + 20;
+  game.rivals[0].y = game.cricket.y;
+  const second = updateGame(game, striking, 1 / 60);
+
+  assert.ok(second.some((e) => e.type === 'bug-killed' && e.kind === 'beetle'));
+  assert.equal(game.food.items.length, CONFIG.rivals.drops.beetle, 'a beetle should pay double');
+});
+
+test('a stunned cricket cannot move, sing, leap or swing', () => {
+  const game = newGame();
+  bugInFront(game, 'beetle');
+  updateGame(game, striking, 1 / 60);
+  assert.ok(game.cricket.stunnedFor > 0);
+
+  const startX = game.cricket.x;
+  const events = updateGame(game, { dx: 1, dy: 0, sing: true, jump: true, strike: true }, 1 / 60);
+
+  assert.equal(game.cricket.x, startX, 'it moved while stunned');
+  assert.equal(game.cricket.singing, false);
+  assert.equal(game.cricket.jumping, false);
+  assert.ok(!events.some((e) => e.type === 'strike'));
+});
+
+test('swinging is loud: it feeds the same attention meter singing does', () => {
+  const game = newGame();
+  game.rivals = [];
+  assert.equal(game.attention.value, 0);
+
+  updateGame(game, striking, 1 / 60);
+  // One frame of the meter's own decay comes off the bump, hence the tolerance.
+  assert.ok(game.attention.value > CONFIG.attention.perStrike * 0.9, `attention ${game.attention.value}`);
+  assert.ok(game.attention.value <= CONFIG.attention.perStrike);
+});
+
+test('a swing at empty air still costs noise but drops nothing', () => {
+  const game = newGame();
+  game.rivals = [];
+  game.food.items = [];
+
+  const events = updateGame(game, striking, 1 / 60);
+  assert.ok(events.some((e) => e.type === 'strike' && e.connected === false));
+  assert.equal(game.food.items.length, 0);
+});
+
+test('the strike has a cooldown, so a held key cannot machine-gun swings', () => {
+  const game = newGame();
+  game.rivals = [];
+
+  let swings = 0;
+  for (let i = 0; i < 60; i += 1) {
+    swings += updateGame(game, striking, 1 / 60).filter((e) => e.type === 'strike').length;
+  }
+
+  assert.equal(swings, 1, `a held key produced ${swings} swings in one second`);
+});
+
+test('a cricket cannot swing in mid-leap', () => {
+  const game = newGame();
+  game.rivals = [];
+  updateGame(game, { dx: 0, dy: 0, sing: false, jump: true, strike: false }, 1 / 60);
+  assert.equal(game.cricket.jumping, true);
+
+  const events = updateGame(game, striking, 1 / 60);
+  assert.ok(!events.some((e) => e.type === 'strike'));
+});
+
+test('the bug population recovers after a cull', () => {
+  const game = newGame();
+  game.rivals = [];
+
+  for (let i = 0; i < CONFIG.rivals.respawnSeconds * CONFIG.rivals.count * 60 + 120; i += 1) {
+    updateGame(game, notStriking, 1 / 60);
+    if (game.phase !== 'PLAYING') startRun(game);
+  }
+
+  assert.equal(game.rivals.length, CONFIG.rivals.count, 'the meadow stayed farmed out');
+});
+
+test('a grub is never spawned by the meadow itself', () => {
+  const game = newGame();
+  game.rivals = [];
+
+  for (let i = 0; i < 120 * 60; i += 1) {
+    updateGame(game, notStriking, 1 / 60);
+    if (game.phase !== 'PLAYING') startRun(game);
+    for (const item of game.food.items) {
+      assert.notEqual(item.type, 'grub', 'a grub appeared without a bug dying for it');
+    }
+  }
+});

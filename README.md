@@ -26,6 +26,7 @@ ES module imports over `file://`.
 | Move | `WASD` or arrow keys | drag from anywhere |
 | Sing | hold `E` | touch and hold still |
 | Leap to cover | `SPACE` | quick tap |
+| Strike | `F` | — |
 | Start / restart | `ENTER` | tap |
 | Mute | `M` | — |
 
@@ -61,8 +62,15 @@ The credits scroll continuously at the foot of the title screen.
   exactly what walks you into one. Look for glinting eyes and web strands before
   you dive for cover. They tense visibly before they lunge — leap then, or run
   out of reach.
-- **Ants and beetles** roam the same meadow. They are no threat, but they eat
-  the same food, so a crumb you walk past may not be there when you come back.
+- **Ants and beetles** roam the same meadow. They are no threat on their own,
+  but they eat the same food, so a crumb you walk past may not be there when you
+  come back.
+- **You can fight them for it.** `F` swings at whatever is in front of you. An
+  ant drops at one blow; a beetle takes two and bites back for the first, which
+  stuns you for half a second — no life lost, but a bad moment to be frozen.
+  A killed bug leaves a **grub** worth more than a berry, and a beetle leaves
+  two. Swinging is loud, so a long scrap summons predators just as singing does.
+  Bugs wander back in over time, so the meadow is never farmed out.
 - The meadow is three screens wide and scrolls to follow you.
 - Three lives, and the predators get faster the longer you last.
 

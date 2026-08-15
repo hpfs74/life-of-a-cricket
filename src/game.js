@@ -1,11 +1,11 @@
 import { CONFIG } from './config.js';
-import { createWorld, isWater, nearestDryPoint } from './world.js';
+import { clampToBounds, createWorld, isWater, nearestDryPoint } from './world.js';
 import { createCricket, updateCricket } from './cricket.js';
-import { createFoodField, updateFood, consumeFood } from './food.js';
+import { createFoodField, updateFood, consumeFood, dropFood } from './food.js';
 import { spawnBird, updateBird } from './birds.js';
 import { createScore, tickSong, breakSong, tickFed, eat, commitHighScore } from './score.js';
 import { createAttention, tickAttention, resetAttention } from './attention.js';
-import { createRivals, updateRivals } from './rivals.js';
+import { createRivals, updateRivals, resolveStrike, spawnRival } from './rivals.js';
 import { createSpiders, updateSpiders } from './spiders.js';
 import { dayAt, isNight } from './daylight.js';
 
@@ -36,6 +36,7 @@ export function createGame({ storage, rng = Math.random } = {}) {
     day: 1,
     night: false,
     shiftedFor: 0,
+    rivalRespawnTimer: 0,
     patrolTimer: 0,
     hidden: false,
     newRecord: false,
@@ -60,9 +61,63 @@ export function startRun(game) {
   game.day = 1;
   game.night = false;
   game.shiftedFor = 0;
+  game.rivalRespawnTimer = 0;
   game.patrolTimer = 0;
   game.hidden = false;
   game.newRecord = false;
+}
+
+/**
+ * Resolves a swing: damage, the corpse's drop, and the beetle's answer.
+ *
+ * Swinging is loud, so it feeds the same attention meter singing does — a long
+ * scrap summons predators exactly like a long note.
+ */
+function swing(game, events) {
+  const { hit, killed, retaliated } = resolveStrike(game.cricket, game.rivals);
+  events.push({ type: 'strike', connected: Boolean(hit) });
+
+  game.attention.value = Math.min(1, game.attention.value + CONFIG.attention.perStrike);
+
+  if (!hit) return;
+
+  if (killed) {
+    const drops = CONFIG.rivals.drops[hit.kind] ?? 1;
+    for (let i = 0; i < drops; i += 1) {
+      // Scatter multiples so a beetle's pair does not stack into one crumb.
+      const angle = (i / drops) * Math.PI * 2;
+      const spread = drops > 1 ? 14 : 0;
+      const where = clampToBounds(
+        game.world,
+        hit.x + Math.cos(angle) * spread,
+        hit.y + Math.sin(angle) * spread,
+        CONFIG.food.types.grub.radius,
+      );
+      dropFood(game.food, 'grub', where.x, where.y);
+    }
+    events.push({ type: 'bug-killed', kind: hit.kind, drops });
+    return;
+  }
+
+  events.push({ type: 'bug-hit', kind: hit.kind });
+
+  if (retaliated) {
+    game.cricket.stunnedFor = CONFIG.rivals.biteStunSeconds;
+
+    // A shove backwards, so the bite reads as contact rather than a freeze.
+    const shoved = clampToBounds(
+      game.world,
+      game.cricket.x - game.cricket.dirX * CONFIG.rivals.biteKnockback,
+      game.cricket.y - game.cricket.dirY * CONFIG.rivals.biteKnockback,
+      CONFIG.cricket.radius,
+    );
+    if (!isWater(game.world, shoved.x, shoved.y, CONFIG.cricket.radius)) {
+      game.cricket.x = shoved.x;
+      game.cricket.y = shoved.y;
+    }
+
+    events.push({ type: 'stunned', kind: hit.kind });
+  }
 }
 
 /**
@@ -139,6 +194,7 @@ export function updateGame(game, intent, dt) {
   }
   if (cricketEvents.startedJump) events.push({ type: 'jump' });
   if (cricketEvents.landed) events.push({ type: 'land' });
+  if (cricketEvents.startedStrike) swing(game, events);
 
   // Singing from cover is loud but scores nothing — cover is safety, not points.
   const scoringSong = game.cricket.singing && !game.hidden;
@@ -180,6 +236,14 @@ export function updateGame(game, intent, dt) {
   // The cricket gets first claim each frame; the rivals take what is left.
   for (const item of updateRivals(game.rivals, dt, game.world, game.food, game.rng)) {
     events.push({ type: 'rival-ate', food: item });
+  }
+
+  // Bugs wander back in from the long grass, so killing them off never empties
+  // the meadow of competition or of the food their corpses provide.
+  game.rivalRespawnTimer += dt;
+  if (game.rivals.length < CONFIG.rivals.count && game.rivalRespawnTimer >= CONFIG.rivals.respawnSeconds) {
+    game.rivalRespawnTimer = 0;
+    game.rivals.push(spawnRival(game.world, game.rng, game.rivals.length));
   }
 
   // Spiders hunt from inside cover, so they are checked wherever the cricket is.
