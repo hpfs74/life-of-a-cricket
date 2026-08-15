@@ -48,6 +48,11 @@ The credits scroll continuously at the foot of the title screen.
   dive, which makes the leap the other answer to a predator's cry.
 - **Days pass** on a dawn-to-midnight-to-dawn cycle. Birds hunt by day; bats
   take over at night.
+- **Spiders** live inside four of the meadow's tufts, and they are the exception
+  to all of the above: they hunt by touch, so hiding and keeping quiet is
+  exactly what walks you into one. Look for glinting eyes and web strands before
+  you dive for cover. They tense visibly before they lunge — leap then, or run
+  out of reach.
 - **Ants and beetles** roam the same meadow. They are no threat, but they eat
   the same food, so a crumb you walk past may not be there when you come back.
 - The meadow is three screens wide and scrolls to follow you.
@@ -75,6 +80,7 @@ ramp.
 | `src/cricket.js` | Player movement, singing and leaping |
 | `src/birds.js` | Predator state machine, shared by day birds and night bats |
 | `src/rivals.js` | Ants and beetles competing for the food |
+| `src/spiders.js` | Ambush predators that hold cover |
 | `src/food.js` | Food spawning and eating |
 | `src/score.js` | Score, multiplier, fed meter, high score |
 | `src/attention.js` | Attention meter and its spawn thresholds |

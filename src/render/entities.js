@@ -295,6 +295,79 @@ function drawRival(ctx, rival, time) {
   ctx.restore();
 }
 
+/**
+ * Web strands across the mouth of an occupied tuft. Drawn beneath everything so
+ * the cover looks spun-in rather than decorated.
+ */
+function drawSpiderTell(ctx, spider) {
+  const r = spider.cover.radius;
+
+  ctx.strokeStyle = `rgba(214, 226, 240, ${0.14 + spider.alertness * 0.26})`;
+  ctx.lineWidth = 1;
+  for (let i = 0; i < 4; i += 1) {
+    const angle = (i / 4) * Math.PI * 2 + 0.5;
+    ctx.beginPath();
+    ctx.moveTo(spider.homeX, spider.homeY);
+    ctx.lineTo(spider.homeX + Math.cos(angle) * r * 0.85, spider.homeY + Math.sin(angle) * r * 0.6);
+    ctx.stroke();
+  }
+}
+
+function drawSpider(ctx, spider, time) {
+  const winding = spider.state === 'WINDUP';
+  const lunging = spider.state === 'LUNGE';
+
+  // It tenses visibly before it commits: that crouch is the reaction window.
+  const crouch = winding ? 1 - Math.min(1, spider.stateTime / CONFIG.spiders.windUpSeconds) * 0.35 : 1;
+  const body = (lunging ? 8.5 : 7) * crouch;
+  const reach = lunging ? 17 : 13 * crouch;
+  const skitter = lunging ? 0 : Math.sin(time * 5 + spider.homeY) * 0.12;
+
+  ctx.save();
+  ctx.translate(spider.x, spider.y);
+
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+  ctx.beginPath();
+  ctx.ellipse(0, body * 0.9, body * 1.1, body * 0.35, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.strokeStyle = winding || lunging ? '#241a20' : '#2c2028';
+  ctx.lineWidth = 1.8;
+  ctx.lineCap = 'round';
+  for (const side of [-1, 1]) {
+    for (let i = 0; i < 4; i += 1) {
+      const spread = (-0.75 + i * 0.5) + skitter * side;
+      const knee = reach * 0.62;
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.lineTo(Math.cos(spread) * knee * side, Math.sin(spread) * knee - reach * 0.3);
+      ctx.lineTo(Math.cos(spread) * reach * side, Math.sin(spread) * reach + reach * 0.15);
+      ctx.stroke();
+    }
+  }
+
+  ctx.fillStyle = '#20161c';
+  ctx.beginPath();
+  ctx.ellipse(0, 0, body, body * 0.85, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.ellipse(body * 0.85, 0, body * 0.5, body * 0.45, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Eyes last, so the body cannot swallow the one cue the player needs. They
+  // are always lit and brighten as the cricket approaches.
+  const glow = 0.68 + spider.alertness * 0.32;
+  const pulse = 0.85 + Math.sin(time * 3 + spider.homeX) * 0.15;
+  ctx.fillStyle = `rgba(255, 226, 128, ${glow * pulse})`;
+  for (const side of [-1, 1]) {
+    ctx.beginPath();
+    ctx.arc(body * 1.05, side * body * 0.3, 2.1, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  ctx.restore();
+}
+
 /** Sits above the cricket, so it is drawn in world space with everything else. */
 function drawHiddenMarker(ctx, game) {
   if (!game.hidden) return;
@@ -307,7 +380,10 @@ function drawHiddenMarker(ctx, game) {
 }
 
 export function drawEntities(ctx, game, time) {
+  // Tells first: they belong to the cover, beneath everything moving.
+  for (const spider of game.spiders) drawSpiderTell(ctx, spider);
   for (const item of game.food.items) drawFood(ctx, item);
+  for (const spider of game.spiders) drawSpider(ctx, spider, time);
   for (const rival of game.rivals) drawRival(ctx, rival, time);
   drawCricket(ctx, game, time);
   drawHiddenMarker(ctx, game);

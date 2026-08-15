@@ -6,6 +6,7 @@ import { spawnBird, updateBird } from './birds.js';
 import { createScore, tickSong, breakSong, tickFed, eat, commitHighScore } from './score.js';
 import { createAttention, tickAttention, resetAttention } from './attention.js';
 import { createRivals, updateRivals } from './rivals.js';
+import { createSpiders, updateSpiders } from './spiders.js';
 import { dayAt, isNight } from './daylight.js';
 
 export { dayAt, isNight };
@@ -27,6 +28,7 @@ export function createGame({ storage, rng = Math.random } = {}) {
     birds: [],
     food: createFoodField(),
     rivals: createRivals(world, rng),
+    spiders: createSpiders(world, rng),
     score: createScore(storage),
     attention: createAttention(),
     lives: CONFIG.game.startingLives,
@@ -48,6 +50,7 @@ export function startRun(game) {
   game.birds = [];
   game.food = createFoodField();
   game.rivals = createRivals(game.world, game.rng);
+  game.spiders = createSpiders(game.world, game.rng);
   game.score = createScore(game.score.storage);
   game.score.highScore = highScore;
   game.attention = createAttention();
@@ -58,6 +61,21 @@ export function startRun(game) {
   game.patrolTimer = 0;
   game.hidden = false;
   game.newRecord = false;
+}
+
+/**
+ * Applies one hit on the cricket, from whatever caught it. Returns false if the
+ * cricket was still inside its mercy window and the hit did not land.
+ */
+function takeHit(game, events, detail) {
+  if (game.cricket.invulnerableFor > 0) return false;
+
+  game.lives -= 1;
+  game.cricket.invulnerableFor = CONFIG.cricket.invulnerableSeconds;
+  breakSong(game.score);
+  resetAttention(game.attention);
+  events.push({ type: 'hit', ...detail });
+  return true;
 }
 
 /**
@@ -126,6 +144,12 @@ export function updateGame(game, intent, dt) {
     events.push({ type: 'rival-ate', food: item });
   }
 
+  // Spiders hunt from inside cover, so they are checked wherever the cricket is.
+  for (const event of updateSpiders(game.spiders, dt, game.world, game.cricket)) {
+    if (event.type === 'spider-hit') takeHit(game, events, { spider: event.spider, from: 'spider' });
+    else events.push(event);
+  }
+
   const context = {
     world: game.world,
     cricket: game.cricket,
@@ -144,13 +168,7 @@ export function updateGame(game, intent, dt) {
       events.push({ type: 'bird-cry', bird, kind: bird.kind });
     }
 
-    if (event === 'hit' && game.cricket.invulnerableFor <= 0) {
-      game.lives -= 1;
-      game.cricket.invulnerableFor = CONFIG.cricket.invulnerableSeconds;
-      breakSong(game.score);
-      resetAttention(game.attention);
-      events.push({ type: 'hit', bird });
-    }
+    if (event === 'hit') takeHit(game, events, { bird, from: bird.kind });
 
     if (bird.state !== 'GONE') survivors.push(bird);
   }

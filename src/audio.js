@@ -348,6 +348,14 @@ export function createAudio() {
             tone({ frequency: 1500, sweepTo: 420, duration: 0.45, type: 'sawtooth', gain: 0.12 });
           }
           break;
+        case 'spider-wake':
+          // A dry tick from the grass: the only warning before the lunge.
+          tone({ frequency: 900, sweepTo: 640, duration: 0.05, type: 'square', gain: 0.05 });
+          break;
+        case 'spider-lunge':
+          noiseBurst({ duration: 0.16, peak: 0.09, centre: 2600 });
+          tone({ frequency: 480, sweepTo: 180, duration: 0.18, type: 'sawtooth', gain: 0.08 });
+          break;
         case 'rival-ate':
           // Someone else's meal: quieter, and lower than the cricket's own.
           tone({ frequency: 340, sweepTo: 250, duration: 0.09, type: 'triangle', gain: 0.05 });

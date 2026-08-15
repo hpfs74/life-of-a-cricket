@@ -354,3 +354,53 @@ test('a fresh run repopulates the rivals', () => {
   startRun(game);
   assert.equal(game.rivals.length, CONFIG.rivals.count);
 });
+
+test('a run places spiders in the meadow and repopulates them on restart', () => {
+  const game = createGame({ storage: memoryStorage(), rng: seededRng(4) });
+  startRun(game);
+  assert.equal(game.spiders.length, CONFIG.spiders.count);
+
+  game.spiders = [];
+  startRun(game);
+  assert.equal(game.spiders.length, CONFIG.spiders.count);
+});
+
+test('hiding in an occupied tuft costs a life, however quiet the cricket is', () => {
+  const game = createGame({ storage: memoryStorage(), rng: seededRng(4) });
+  startRun(game);
+
+  const spider = game.spiders[0];
+  game.cricket.x = spider.homeX;
+  game.cricket.y = spider.homeY;
+
+  let hit = false;
+  for (let i = 0; i < 240 && !hit; i += 1) {
+    // Silent and stationary: exactly what saves the cricket from a bird.
+    game.cricket.x = spider.homeX;
+    game.cricket.y = spider.homeY;
+    hit = updateGame(game, still, 1 / 60).some((e) => e.type === 'hit' && e.from === 'spider');
+  }
+
+  assert.ok(hit, 'the spider never caught a cricket sitting on top of it');
+  assert.equal(game.lives, CONFIG.game.startingLives - 1);
+  assert.ok(game.cricket.invulnerableFor > 0, 'a spider hit should grant the same mercy window');
+});
+
+test('the spider wake and lunge are reported so the player can hear them coming', () => {
+  const game = createGame({ storage: memoryStorage(), rng: seededRng(4) });
+  startRun(game);
+
+  const spider = game.spiders[0];
+  game.cricket.x = spider.homeX;
+  game.cricket.y = spider.homeY;
+
+  const seen = new Set();
+  for (let i = 0; i < 240; i += 1) {
+    game.cricket.x = spider.homeX;
+    game.cricket.y = spider.homeY;
+    for (const e of updateGame(game, still, 1 / 60)) seen.add(e.type);
+  }
+
+  assert.ok(seen.has('spider-wake'), 'no wake was reported');
+  assert.ok(seen.has('spider-lunge'), 'no lunge was reported');
+});

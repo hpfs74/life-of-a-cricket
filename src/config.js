@@ -64,6 +64,23 @@ export const CONFIG = {
     },
   },
 
+  // Spiders live inside cover. They are the exception to the game's core rule:
+  // hiding and keeping quiet beats anything with wings, but not one of these.
+  spiders: {
+    count: 4,
+    // No spider sits near the spawn point, so a run cannot open with a death.
+    minDistanceFromSpawn: 420,
+    // The reaction window between being disturbed and being lunged at.
+    windUpSeconds: 0.45,
+    lungeSpeed: 520,
+    lungeSeconds: 0.28,
+    hitRadius: 22,
+    recoverSeconds: 1.6,
+    returnSpeed: 150,
+    // How close the cricket must be before the tell starts to glow.
+    noticeRadius: 190,
+  },
+
   // Ants and beetles share the meadow. They are no threat to the cricket, but
   // they eat the same food, so dawdling costs points.
   rivals: {
