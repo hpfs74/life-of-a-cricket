@@ -25,6 +25,7 @@ public enum CoverType: String, CaseIterable, Sendable {
     case grass, rock, leaf, sofa, chair, table, plant, box, bed
 
     public static let meadowTypes: [CoverType] = [.grass, .rock, .leaf]
+    public static let furnitureTypes: [CoverType] = [.sofa, .chair, .table, .plant, .box, .bed]
 }
 
 public struct Band: Equatable, Sendable {
