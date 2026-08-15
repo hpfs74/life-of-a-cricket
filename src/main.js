@@ -4,6 +4,7 @@ import { createInput } from './input.js';
 import { createAudio } from './audio.js';
 import { createCamera, updateCamera } from './camera.js';
 import { drawSky, drawGround } from './render/background.js';
+import { drawHouseBackdrop, drawHouseInterior } from './render/house.js';
 import { drawEntities } from './render/entities.js';
 import { drawHud, drawOverlay } from './render/hud.js';
 
@@ -130,6 +131,11 @@ function frame(now) {
 
   for (const event of updateGame(game, intent, dt)) {
     audio.play(event.type, event);
+
+    // A doorway swaps the whole world out; re-frame rather than sliding across.
+    if (event.type === 'stage-change') {
+      camera.x = createCamera(game.world, game.cricket).x;
+    }
   }
 
   audio.setSinging(game.phase === 'PLAYING' && game.cricket.singing, game.score.multiplier);
@@ -150,12 +156,15 @@ function frame(now) {
   ctx.rect(0, 0, CONFIG.view.width, CONFIG.view.height);
   ctx.clip();
 
-  drawSky(ctx, game, time);
+  const indoors = game.stage === 'house';
+  if (indoors) drawHouseBackdrop(ctx, game);
+  else drawSky(ctx, game, time);
 
   // Everything from here to the matching restore is in world space.
   ctx.save();
   ctx.translate(-Math.round(camera.x), 0);
-  drawGround(ctx, game, time, camera.x);
+  if (indoors) drawHouseInterior(ctx, game, time, camera.x);
+  else drawGround(ctx, game, time, camera.x);
   if (game.phase !== 'MENU') drawEntities(ctx, game, time);
   ctx.restore();
 

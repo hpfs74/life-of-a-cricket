@@ -437,6 +437,130 @@ function drawHiddenMarker(ctx, game) {
   ctx.fillText('hidden', game.cricket.x, game.cricket.y - 42);
 }
 
+/** The cat: a long low silhouette, tensing before it commits. */
+function drawCat(ctx, cat, time) {
+  const pouncing = cat.state === 'POUNCE';
+  const stalking = cat.state === 'STALK';
+  const facing = cat.dirX >= 0 ? 1 : -1;
+
+  // It flattens as it stalks and stretches out mid-pounce.
+  const crouch = stalking ? 0.82 : 1;
+  const stretch = pouncing ? 1.25 : 1;
+  const length = 34 * stretch;
+  const height = 17 * crouch;
+  const bob = pouncing ? 0 : Math.sin(time * 4 + cat.x * 0.02) * 1.5;
+
+  ctx.save();
+  ctx.translate(cat.x, cat.y + bob);
+  ctx.scale(facing, 1);
+
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.32)';
+  ctx.beginPath();
+  ctx.ellipse(0, height * 0.95, length * 0.8, height * 0.3, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  const coat = stalking || pouncing ? '#3b3339' : '#4a4048';
+
+  // Legs.
+  ctx.strokeStyle = coat;
+  ctx.lineWidth = 4;
+  ctx.lineCap = 'round';
+  for (const at of [-length * 0.5, -length * 0.15, length * 0.3, length * 0.55]) {
+    const swing = pouncing ? 6 : Math.sin(time * 7 + at) * 3;
+    ctx.beginPath();
+    ctx.moveTo(at, height * 0.1);
+    ctx.lineTo(at + swing, height * 0.95);
+    ctx.stroke();
+  }
+
+  // Tail, whipping when it is interested.
+  ctx.lineWidth = 3.4;
+  const whip = Math.sin(time * (stalking ? 9 : 3)) * (stalking ? 12 : 6);
+  ctx.beginPath();
+  ctx.moveTo(-length * 0.75, -height * 0.15);
+  ctx.quadraticCurveTo(-length * 1.15, -height * 0.7 + whip, -length * 1.35, -height * 1.1 + whip);
+  ctx.stroke();
+
+  ctx.fillStyle = coat;
+  ctx.beginPath();
+  ctx.ellipse(0, 0, length * 0.72, height, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Head and ears.
+  ctx.beginPath();
+  ctx.arc(length * 0.72, -height * 0.25, height * 0.62, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.moveTo(length * 0.5, -height * 0.7);
+  ctx.lineTo(length * 0.6, -height * 1.5);
+  ctx.lineTo(length * 0.78, -height * 0.78);
+  ctx.closePath();
+  ctx.moveTo(length * 0.82, -height * 0.8);
+  ctx.lineTo(length * 0.98, -height * 1.45);
+  ctx.lineTo(length * 1.02, -height * 0.6);
+  ctx.closePath();
+  ctx.fill();
+
+  // Eyes: bright when it has seen you.
+  ctx.fillStyle = `rgba(214, 240, 150, ${0.5 + cat.interest * 0.5})`;
+  ctx.beginPath();
+  ctx.arc(length * 0.92, -height * 0.35, 2.4, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.restore();
+}
+
+/**
+ * The human, seen only as a shadow and a pair of enormous feet. Showing no more
+ * than that keeps the scale right: from down here you would never see a face.
+ */
+function drawHuman(ctx, schedule, world, time) {
+  const walker = schedule?.walker;
+  if (!walker) return;
+
+  const band = walker.band;
+
+  if (walker.warnFor > 0) {
+    // The shadow sweeps in before anything lands.
+    const strength = 1 - walker.warnFor / CONFIG.human.warningSeconds;
+    const grad = ctx.createLinearGradient(
+      walker.x - walker.dir * 300, 0, walker.x + walker.dir * 200, 0,
+    );
+    grad.addColorStop(0, 'rgba(0, 0, 0, 0)');
+    grad.addColorStop(1, `rgba(0, 0, 0, ${0.45 * strength})`);
+    ctx.fillStyle = grad;
+    ctx.fillRect(walker.x - walker.dir * 300, band.top, walker.dir * 500, band.bottom - band.top);
+    return;
+  }
+
+  // A pool of shadow under the walker.
+  const shadow = ctx.createRadialGradient(walker.x, walker.y, 10, walker.x, walker.y, 190);
+  shadow.addColorStop(0, 'rgba(0, 0, 0, 0.5)');
+  shadow.addColorStop(1, 'rgba(0, 0, 0, 0)');
+  ctx.fillStyle = shadow;
+  ctx.fillRect(walker.x - 190, band.top, 380, band.bottom - band.top);
+
+  // Two feet, a stride apart, the back one lifted.
+  for (const [offset, lift] of [[0, 0], [-walker.dir * CONFIG.human.strideLength * 0.6, 16]]) {
+    const fx = walker.x + offset;
+
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+    ctx.beginPath();
+    ctx.ellipse(fx, walker.y + 26, 52, 13, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = '#2c2f3a';
+    ctx.beginPath();
+    ctx.ellipse(fx, walker.y - lift, 54, 27, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = '#3d4150';
+    ctx.beginPath();
+    ctx.ellipse(fx + walker.dir * 22, walker.y - lift - 4, 26, 18, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
 export function drawEntities(ctx, game, time) {
   // Tells first: they belong to the cover, beneath everything moving.
   for (const spider of game.spiders) drawSpiderTell(ctx, spider);
@@ -446,4 +570,6 @@ export function drawEntities(ctx, game, time) {
   drawCricket(ctx, game, time);
   drawHiddenMarker(ctx, game);
   for (const bird of game.birds) drawBird(ctx, bird, game, time);
+  if (game.cat) drawCat(ctx, game.cat, time);
+  drawHuman(ctx, game.humans, game.world, time);
 }

@@ -72,7 +72,7 @@ function drawCelestialBody(ctx, width, horizon, phase) {
  * Water, drawn as one merged shape rather than a string of visible discs: the
  * circles are filled onto the same path so their overlaps disappear.
  */
-function drawWater(ctx, world, time, darkness, visibleFrom, visibleTo) {
+export function drawWater(ctx, world, time, darkness, visibleFrom, visibleTo) {
   const inView = world.water.filter(
     (c) => c.x + c.radius >= visibleFrom && c.x - c.radius <= visibleTo,
   );
@@ -176,6 +176,36 @@ function drawCover(ctx, item, time) {
  * The sky is drawn in view space, not world space, so it stays put while the
  * ground scrolls underneath. That difference is the parallax.
  */
+/** The house at the east end of the meadow: a wall, and a lit doorway to enter. */
+function drawDoorway(ctx, game, darkness, visibleTo) {
+  const door = game.world.door;
+  if (!door || door.x - door.width * 3 > visibleTo) return;
+
+  const { height, top } = game.world;
+  const wallLeft = door.x - door.width / 2;
+
+  // The house wall closing off the east end. It runs past the world edge so no
+  // gap shows when the camera is hard against the right-hand stop.
+  const k = 1 - darkness * 0.5;
+  ctx.fillStyle = `rgb(${Math.round(96 * k)}, ${Math.round(80 * k)}, ${Math.round(72 * k)})`;
+  ctx.fillRect(wallLeft, top - 40, game.world.width - wallLeft + 200, height - top + 40);
+
+  // The doorway itself, warmly lit from inside.
+  const doorTop = door.y - door.height / 2;
+  ctx.fillStyle = '#1d140f';
+  ctx.beginPath();
+  ctx.roundRect(wallLeft, doorTop, door.width * 1.6, door.height, [door.width * 0.4, 0, 0, door.width * 0.4]);
+  ctx.fill();
+
+  const glow = ctx.createLinearGradient(wallLeft, 0, wallLeft + door.width * 1.4, 0);
+  glow.addColorStop(0, `rgba(255, 214, 140, ${0.5 + darkness * 0.35})`);
+  glow.addColorStop(1, 'rgba(255, 200, 120, 0)');
+  ctx.fillStyle = glow;
+  ctx.beginPath();
+  ctx.roundRect(wallLeft, doorTop + 6, door.width * 1.5, door.height - 12, [door.width * 0.35, 0, 0, door.width * 0.35]);
+  ctx.fill();
+}
+
 export function drawSky(ctx, game, time) {
   const horizon = game.world.top;
   const width = CONFIG.view.width;
@@ -242,6 +272,8 @@ export function drawGround(ctx, game, time, cameraX = 0) {
   }
 
   drawWater(ctx, game.world, time, darkness, visibleFrom, visibleTo);
+
+  drawDoorway(ctx, game, darkness, visibleTo);
 
   for (const item of game.world.cover) {
     if (item.x + item.radius < visibleFrom || item.x - item.radius > visibleTo) continue;

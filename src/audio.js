@@ -348,6 +348,28 @@ export function createAudio() {
             tone({ frequency: 1500, sweepTo: 420, duration: 0.45, type: 'sawtooth', gain: 0.12 });
           }
           break;
+        case 'stage-change':
+          // A door swinging: a soft knock and a settling creak.
+          tone({ frequency: 180, sweepTo: 120, duration: 0.18, type: 'sine', gain: 0.1 });
+          tone({ frequency: 420, sweepTo: 300, duration: 0.5, type: 'triangle', gain: 0.05, delay: 0.12 });
+          break;
+        case 'cat-noticed':
+          // A low, interested chirrup. You want to hear this and freeze.
+          tone({ frequency: 500, sweepTo: 700, duration: 0.2, type: 'sine', gain: 0.09, detuneHz: 12 });
+          break;
+        case 'cat-pounced':
+          noiseBurst({ duration: 0.28, peak: 0.1, centre: 3200 });
+          tone({ frequency: 700, sweepTo: 260, duration: 0.3, type: 'sawtooth', gain: 0.08 });
+          break;
+        case 'human-approaching':
+          // A distant rumble under everything, well before the feet arrive.
+          tone({ frequency: 70, sweepTo: 54, duration: 1.4, type: 'sine', gain: 0.13, attack: 0.4 });
+          break;
+        case 'footfall':
+          // Felt more than heard: a low thud with a slap of floorboard on top.
+          tone({ frequency: 62, sweepTo: 40, duration: 0.34, type: 'sine', gain: 0.2, attack: 0.005 });
+          noiseBurst({ duration: 0.12, peak: 0.07, centre: 320 });
+          break;
         case 'strike':
           // A dry whoosh; a connecting hit adds its own thud below.
           noiseBurst({ duration: 0.09, peak: detail.connected ? 0.05 : 0.03, centre: 1800 });

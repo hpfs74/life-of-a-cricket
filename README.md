@@ -74,6 +74,33 @@ The credits scroll continuously at the foot of the title screen.
 - The meadow is three screens wide and scrolls to follow you.
 - Three lives, and the predators get faster the longer you last.
 
+## The house
+
+Far to the east of the meadow there is a doorway. Walk into it and the game
+moves indoors, carrying your score, your lives and the day with it. You can walk
+back out whenever you like.
+
+The house is drawn in cross-section, both floors at once, with a stairwell
+joining them — so you can watch the cat coming before it reaches you. Furniture
+replaces grass as cover, spills and a pet bowl replace the stream, and the
+house's own ants and beetles are still after the same crumbs.
+
+Birds and bats never come inside. Instead:
+
+- **The cat** hunts. It prowls, notices anything exposed — and a singing cricket
+  carries much further than a moving one — then stalks and pounces at where you
+  were when it committed. Furniture breaks its interest outright, and it climbs
+  the stairs after you. A leap clears a pounce, exactly as it clears a dive.
+- **The human** never hunts and never notices you. It crosses a room on its own
+  schedule behind a spreading shadow, and anything caught in the open under a
+  footfall is crushed. Leaping does not help — there is nowhere above a foot to
+  be. Only furniture saves you.
+- **Spiders** live here too, behind the furniture, exactly as they do in the
+  grass.
+
+Houses do not rearrange themselves overnight, so the daily reshuffle stays
+outdoors.
+
 ## Development
 
 ```bash
@@ -91,13 +118,16 @@ ramp.
 
 | Path | Responsibility |
 | --- | --- |
-| `src/world.js` | Meadow bounds, the horizon, cover and water placement, hiding and jump targeting |
+| `src/world.js` | World geometry: bands of walkable ground, cover and water placement, hiding, doorways and jump targeting |
 | `src/daylight.js` | The day/night clock: day number, darkness, whether it is night |
 | `src/cricket.js` | Player movement, singing and leaping |
 | `src/birds.js` | Predator state machine, shared by day birds and night bats |
 | `src/rivals.js` | Ants and beetles competing for the food |
 | `src/spiders.js` | Ambush predators that hold cover |
 | `src/water.js` | Streams and ponds, as overlapping circles |
+| `src/house.js` | The two-floor house: bands, stairs, furniture, doorway |
+| `src/cat.js` | The house cat: prowl, stalk, pounce, and the stairs |
+| `src/human.js` | The human: a schedule, a shadow, and heavy feet |
 | `src/food.js` | Food spawning and eating |
 | `src/score.js` | Score, multiplier, fed meter, high score |
 | `src/attention.js` | Attention meter and its spawn thresholds |
@@ -107,8 +137,13 @@ ramp.
 | `src/audio.js` | Synthesized ambience, calls and effects (no audio files) |
 | `src/render/` | Drawing only; never mutates game state |
 
-Rendering is split by coordinate space: the sky is drawn in view space so it
-stays put, the ground and entities in world space behind the camera transform,
-and the HUD back in view space on top.
+Rendering is split by coordinate space: the sky (or the house backdrop) is drawn
+in view space so it stays put, the ground and entities in world space behind the
+camera transform, and the HUD back in view space on top.
+
+Both stages are the same shape of data — bands of walkable ground, cover to hide
+in, water to avoid — so the cricket, the food, the rival bugs, the spiders and
+the camera all work indoors and out without knowing which they are in. A meadow
+is simply a house with one floor and no stairs.
 
 The design and implementation notes live in `docs/superpowers/`.

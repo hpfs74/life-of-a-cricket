@@ -40,7 +40,8 @@ export function drawHud(ctx, game) {
   ctx.textBaseline = 'top';
   ctx.fillStyle = '#ffffff';
   ctx.font = '700 24px ui-sans-serif, system-ui, sans-serif';
-  ctx.fillText(`${game.night ? '\u263e' : '\u2600'}  Day ${game.day}`, width / 2, 18);
+  const where = game.stage === 'house' ? '\u2302  ' : '';
+  ctx.fillText(`${where}${game.night ? '\u263e' : '\u2600'}  Day ${game.day}`, width / 2, 18);
 
   if (game.shiftedFor > 0) {
     // Fade the caption out so a new day reads as an event, not a glitch.
