@@ -71,6 +71,41 @@ Nothing under `src/render/` has tests — that layer is deliberately thin and st
 
 Every push to `main` runs the suite, then publishes to `https://theteresa.com/life-of-a-cricket` via OIDC (no stored AWS keys). A red suite never reaches the site. The sync deliberately omits `--delete` and the IAM role has no delete permission, because the bucket also serves the rest of `theteresa.com`.
 
+## The Swift port (`swift/`)
+
+A native iOS port lives in `swift/`, additive and independent — the deploy workflow's explicit `--include` list means it can never reach the website.
+
+```bash
+# Simulation tests. DEVELOPER_DIR is REQUIRED — xcode-select points at
+# CommandLineTools, whose toolchain has no bundled `Testing` framework, so
+# plain `swift test` fails with "no such module 'Testing'". Do not run
+# `sudo xcode-select`; set it per-invocation instead.
+cd swift/CricketCore && DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer swift test
+
+# Touch-layout tests (the multi-touch logic lives in its own package so it is
+# testable without a real UITouch)
+cd swift/TouchInput && DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer swift test
+
+# Build the app
+export DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer
+xcodebuild -project swift/LifeOfACricket/LifeOfACricket.xcodeproj \
+  -scheme LifeOfACricket -destination 'platform=iOS Simulator,name=iPhone 17 Pro' build
+```
+
+`xcodebuild` rewrites `project.pbxproj` — it downgrades `objectVersion` 77→70 (which breaks the synchronized file group) and injects a local `DEVELOPMENT_TEAM`. Check `git status` after building and `git checkout` that file if it changed; never commit it.
+
+The game is playable: meadow and house, rendered with SwiftUI `Canvas`, driven by real multi-touch controls stacked in the letterbox bar. Audio (spec phase 8) is **not** ported — `GameRunner.latestEvents` is the hook it will read.
+
+Structure mirrors the JS separation: `swift/CricketCore/` is a SwiftPM package holding the whole simulation and importing **only** the standard library plus platform libm (`import Darwin`/`Glibc` behind a `canImport` shim — the stdlib has no `sin`/`cos`). `swift/LifeOfACricket/` is the iOS app. That boundary is why `swift test` runs in seconds without a simulator.
+
+The `.xcodeproj` uses a `PBXFileSystemSynchronizedRootGroup`, so adding Swift files needs no project-file edits.
+
+**Cross-language checks guard the port, and all compare against the running JavaScript:**
+- `WorldGoldenTests` / `HouseGoldenTests` — Swift and JS generate identical meadows, and identical houses, for a shared seed.
+- `DifferentialTraceTests` — `Game` is replayed frame by frame against `src/game.js` over six scenarios (singing+jump, silent baseline, combat, house round trip, spider encounter, house siege), chosen to collectively cross a day rollover, night, jump/land, song-break, a hit and game-over from a bird/spider/cat, the full spider state machine, and a cat encounter plus a full human crossing.
+
+Both read fixtures under `Tests/CricketCoreTests/Fixtures/`. **Regenerate them from the JS with `swift/tools/dump-*.mjs`; never hand-edit them.** If one fails, the Swift has drifted — fix the Swift.
+
 ## Docs
 
 `docs/superpowers/specs/` holds the approved design (including the design pillars the mechanics answer to); `docs/superpowers/plans/` holds the implementation plan. The README documents gameplay rules and the per-file responsibility table — consult it before inferring what a module does.
