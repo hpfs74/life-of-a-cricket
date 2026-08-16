@@ -4,7 +4,7 @@ import CricketCore
 @testable import TouchInput
 
 /// A 400x300 screen: wide enough that the stick zone (the left half) and the
-/// button arc (bottom-right corner) do not overlap.
+/// button stack (right-hand side) do not overlap.
 @MainActor
 private func freshState() -> TouchState {
     let state = TouchState()
@@ -102,6 +102,26 @@ private func freshState() -> TouchState {
     state.touchBegan("A", at: CGPoint(x: 40, y: 40))
     #expect(state.consumeStartRequest())
     #expect(!state.consumeStartRequest(), "consuming clears the request")
+}
+
+@Test @MainActor func buttonsClearThePlayfieldAtAPhoneAspectRatio() {
+    // 844x390 (an iPhone 14-shaped landscape screen): wider, relative to its
+    // height, than the 960x600 view, so the letterbox bars land left and
+    // right of the playfield, and the button stack must fit inside the
+    // right one without overlapping it.
+    let state = TouchState()
+    state.resize(width: 844, height: 390)
+    let layout = state.currentLayout
+
+    let viewScale = min(844.0 / Config.View.width, 390.0 / Config.View.height)
+    let playfieldRight = 844.0 / 2 + (Config.View.width * viewScale) / 2
+
+    for button in layout.buttons {
+        #expect(
+            button.x - layout.radius >= playfieldRight,
+            "\(button.id) overlaps the playfield"
+        )
+    }
 }
 
 @Test @MainActor func releaseAllClearsEverything() {

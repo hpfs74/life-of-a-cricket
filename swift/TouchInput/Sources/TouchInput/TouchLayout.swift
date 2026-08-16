@@ -17,49 +17,82 @@ public struct TouchButton: Equatable, Sendable {
 }
 
 /// Where the stick zone and the three buttons sit on a screen of this size.
-/// Ports `touchLayout()` from `src/render/touchcontrols.js`. All positions
-/// are in the whole screen's own coordinate space (CSS pixels there, points
-/// here) — not world units — because the controls deliberately live in the
-/// letterbox bars around the playfield, never over the meadow.
+/// Ports `touchLayout()` from `src/touch.js`. All positions are in the whole
+/// screen's own coordinate space (CSS pixels there, points here) — not world
+/// units — because the controls deliberately live in the letterbox bars
+/// around the playfield, never over the meadow.
 public struct TouchLayout: Equatable, Sendable {
     public var radius: Double
-    public var arcRadius: Double
+    public var buttonSpacing: Double
     public var stickMaxRadius: Double
     public var stickZone: CGRect
     public var buttons: [TouchButton]
 }
 
 /// Ports `touchLayout(width, height)`: button size scales with the screen's
-/// short side, and the three buttons sweep a quarter-arc from the
-/// bottom-right corner, spaced widely enough that no two share a thumb.
+/// short side, and the three buttons stack vertically inside the right-hand
+/// letterbox bar, spaced widely enough that no two share a thumb.
+///
+/// A horizontal thumb-arc was tried first (matching an earlier version of
+/// the JS), but on real phone aspect ratios its buttons reached past the
+/// side bar and over the meadow, and no arc radius clears the meadow without
+/// the buttons overlapping each other. A vertical stack fits the bar
+/// instead, because the bar is narrow but tall.
 public func touchLayout(width: Double, height: Double) -> TouchLayout {
     typealias T = Config.Touch
     let radius = max(T.buttonMinRadius, min(T.buttonMaxRadius, min(width, height) * T.buttonScale))
-    let arcRadius = radius * 3
-    let pivotX = width - T.edgePadding - radius
-    let pivotY = height - T.edgePadding - radius
 
-    func place(_ degrees: Double) -> (x: Double, y: Double) {
-        let radians = degrees * .pi / 180
-        return (pivotX + cos(radians) * arcRadius, pivotY + sin(radians) * arcRadius)
+    // Centre-to-centre gap between stacked buttons. At 2.4x the radius it is
+    // comfortably wider than a button's own diameter (2x the radius), so no
+    // two buttons can ever be pressed by one thumb at once.
+    let buttonSpacing = radius * 2.4
+
+    // Where the right letterbox bar actually sits: this mirrors the
+    // scale/offset math in `GameView.letterboxed(into:viewport:)`, because
+    // that is what determines where the playfield's right edge lands.
+    let viewScale = min(width / Config.View.width, height / Config.View.height)
+    let rightBarWidth = (width - Config.View.width * viewScale) / 2
+
+    let pivotX: Double
+    if rightBarWidth >= radius * 2 {
+        // A real bar, wide enough to hold a button with room either side:
+        // centre the stack inside it.
+        pivotX = width - rightBarWidth / 2
+    } else {
+        // No usable right bar. This happens on a device shaped like an iPad,
+        // where the 3:2 view is narrower than the screen and the letterbox
+        // bars land above and below the playfield instead of beside it —
+        // there is no bar for the stack to sit in. There is no honest fix
+        // for that case: hug the screen's right edge as the least-bad
+        // fallback, and accept that the buttons will sit over the meadow
+        // there.
+        pivotX = width - T.edgePadding - radius
     }
 
-    // Jump takes the middle of the arc: it is the panic button. Same order
-    // as `BUTTON_IDS`/`layout.buttons` in the JS, since that order is also
-    // the hit-test order.
-    let fight = place(180)
-    let jump = place(225)
-    let sing = place(270)
+    // Lower-middle of the screen rather than dead centre: that is where a
+    // thumb rests holding the phone in landscape.
+    let pivotY = height * 0.6
+
+    func place(_ row: Double) -> (x: Double, y: Double) {
+        (pivotX, pivotY + row * buttonSpacing)
+    }
+
+    // Same order as `BUTTON_IDS`/`layout.buttons` in the JS, since that
+    // order is also the hit-test order.
+    let sing = place(-1)
+    // Leap takes the middle of the stack: it is the panic button.
+    let jump = place(0)
+    let fight = place(1)
 
     return TouchLayout(
         radius: radius,
-        arcRadius: arcRadius,
+        buttonSpacing: buttonSpacing,
         stickMaxRadius: T.stickMaxRadius,
         stickZone: CGRect(x: 0, y: 0, width: width * T.stickZoneFraction, height: height),
         buttons: [
-            TouchButton(id: .fight, label: "\u{2715}", x: fight.x, y: fight.y),
-            TouchButton(id: .jump, label: "\u{2191}", x: jump.x, y: jump.y),
             TouchButton(id: .sing, label: "\u{266a}", x: sing.x, y: sing.y),
+            TouchButton(id: .jump, label: "\u{2191}", x: jump.x, y: jump.y),
+            TouchButton(id: .fight, label: "\u{2715}", x: fight.x, y: fight.y),
         ]
     )
 }
