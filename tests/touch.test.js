@@ -45,9 +45,59 @@ test('the layout keeps all three buttons on screen, under the right thumb', () =
   for (const button of layout.buttons) {
     assert.ok(button.x - layout.radius >= 0, `${button.id} is off the left edge`);
     assert.ok(button.x + layout.radius <= SCREEN.width, `${button.id} is off the right edge`);
+    assert.ok(button.y - layout.radius >= 0, `${button.id} is off the top`);
     assert.ok(button.y + layout.radius <= SCREEN.height, `${button.id} is off the bottom`);
     assert.ok(button.x > SCREEN.width / 2, `${button.id} should sit under the right thumb`);
   }
+});
+
+test('on a phone aspect ratio, the stack sits inside the right letterbox bar and clears the playfield', () => {
+  // SCREEN (844x390) is phone-shaped: wider, relative to its height, than the
+  // 3:2 view, so the letterbox bars land left and right of the playfield.
+  const layout = touchLayout(SCREEN.width, SCREEN.height);
+
+  const viewScale = Math.min(SCREEN.width / CONFIG.view.width, SCREEN.height / CONFIG.view.height);
+  const playfieldRight = SCREEN.width / 2 + (CONFIG.view.width * viewScale) / 2;
+
+  // All three buttons share an x (it is a vertical stack), so checking one
+  // checks all of them, but loop anyway in case that ever changes.
+  for (const button of layout.buttons) {
+    assert.ok(
+      button.x - layout.radius >= playfieldRight,
+      `${button.id} overlaps the playfield (left edge ${button.x - layout.radius} < playfield right ${playfieldRight})`,
+    );
+  }
+});
+
+test('the buttons stack top to bottom as sing, leap, strike', () => {
+  const layout = touchLayout(SCREEN.width, SCREEN.height);
+  const byId = Object.fromEntries(layout.buttons.map((b) => [b.id, b]));
+
+  assert.ok(byId.sing.y < byId.jump.y, 'sing should sit above leap');
+  assert.ok(byId.jump.y < byId.fight.y, 'leap should sit above strike');
+  // A vertical stack: every button shares an x.
+  assert.equal(byId.sing.x, byId.jump.x);
+  assert.equal(byId.jump.x, byId.fight.x);
+});
+
+test('on an iPad-shaped screen there is no right bar, so the stack falls back to the edge', () => {
+  // 1194x834: an 11" iPad Pro in landscape. Its aspect ratio (1.43) is
+  // narrower than the view's (960x600, 1.6), so the letterbox bars land
+  // above and below the playfield, not beside it.
+  const ipad = { width: 1194, height: 834 };
+  const layout = touchLayout(ipad.width, ipad.height);
+
+  const viewScale = Math.min(ipad.width / CONFIG.view.width, ipad.height / CONFIG.view.height);
+  const rightBarWidth = (ipad.width - CONFIG.view.width * viewScale) / 2;
+  assert.ok(rightBarWidth < layout.radius * 2, 'this fixture should genuinely have no usable right bar');
+
+  // The fallback still keeps the buttons on screen...
+  for (const button of layout.buttons) {
+    assert.ok(button.x + layout.radius <= ipad.width);
+    assert.ok(button.y - layout.radius >= 0);
+    assert.ok(button.y + layout.radius <= ipad.height);
+  }
+  // ...it just cannot also clear the playfield, and that is expected here.
 });
 
 test('buttons do not overlap each other', () => {

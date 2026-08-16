@@ -8,12 +8,16 @@ import { CONFIG } from './config.js';
  * off stops the cricket dead — which matters, because singing requires standing
  * still.
  *
- * The three actions sit under the right thumb in an arc. Everything is tracked
- * by touch identifier, so steering and pressing a button at the same time works
- * the way it has to.
+ * The three actions sit under the right thumb in a vertical stack, inside the
+ * right-hand letterbox bar. Everything is tracked by touch identifier, so
+ * steering and pressing a button at the same time works the way it has to.
  *
  * Positions are in CSS pixels of the whole screen, not world units: the
- * controls deliberately live in the letterbox around the playfield.
+ * controls deliberately live in the letterbox around the playfield — a
+ * horizontal thumb-arc was tried first, but on real phone aspect ratios its
+ * buttons reached past the side bar and over the meadow, and there is no arc
+ * radius that clears the meadow without the buttons overlapping each other.
+ * A vertical stack fits the bar instead, because the bar is narrow but tall.
  */
 
 export const BUTTON_IDS = ['sing', 'jump', 'fight'];
@@ -24,28 +28,48 @@ export function touchLayout(width, height) {
 
   const radius = Math.max(buttonMinRadius, Math.min(buttonMaxRadius, Math.min(width, height) * buttonScale));
 
-  // The buttons sit on a quarter-arc swept by the thumb from the bottom-right.
-  // At three radii the gap between neighbours is comfortably wider than a
-  // button, so no two can ever be pressed by one thumb at once.
-  const arcRadius = radius * 3;
-  const pivotX = width - edgePadding - radius;
-  const pivotY = height - edgePadding - radius;
+  // Centre-to-centre gap between stacked buttons. At 2.4x the radius it is
+  // comfortably wider than a button's own diameter (2x the radius), so no
+  // two buttons can ever be pressed by one thumb at once.
+  const buttonSpacing = radius * 2.4;
 
-  const place = (degrees) => ({
-    x: pivotX + Math.cos((degrees * Math.PI) / 180) * arcRadius,
-    y: pivotY + Math.sin((degrees * Math.PI) / 180) * arcRadius,
-  });
+  // Where the right letterbox bar actually sits: this mirrors the
+  // scale/offset math in main.js's resize(), because that is what determines
+  // where the playfield's right edge lands on screen.
+  const viewScale = Math.min(width / CONFIG.view.width, height / CONFIG.view.height);
+  const rightBarWidth = (width - CONFIG.view.width * viewScale) / 2;
+
+  let pivotX;
+  if (rightBarWidth >= radius * 2) {
+    // A real bar, wide enough to hold a button with room either side: centre
+    // the stack inside it.
+    pivotX = width - rightBarWidth / 2;
+  } else {
+    // No usable right bar. This happens on a device shaped like an iPad,
+    // where the 3:2 view is narrower than the screen and the letterbox bars
+    // land above and below the playfield instead of beside it — there is no
+    // bar for the stack to sit in. There is no honest fix for that case: hug
+    // the screen's right edge as the least-bad fallback, and accept that the
+    // buttons will sit over the meadow there.
+    pivotX = width - edgePadding - radius;
+  }
+
+  // Lower-middle of the screen rather than dead centre: that is where a
+  // thumb rests holding the phone in landscape.
+  const pivotY = height * 0.6;
+
+  const place = (row) => ({ x: pivotX, y: pivotY + row * buttonSpacing });
 
   return {
     radius,
-    arcRadius,
+    buttonSpacing,
     stickMaxRadius: CONFIG.touch.stickMaxRadius,
     stickZone: { x: 0, y: 0, width: width * stickZoneFraction, height },
     buttons: [
-      // Jump takes the middle of the arc: it is the panic button.
-      { id: 'fight', label: '✕', ...place(180) },
-      { id: 'jump', label: '↑', ...place(225) },
-      { id: 'sing', label: '♪', ...place(270) },
+      { id: 'sing', label: '♪', ...place(-1) },
+      // Leap takes the middle of the stack: it is the panic button.
+      { id: 'jump', label: '↑', ...place(0) },
+      { id: 'fight', label: '✕', ...place(1) },
     ],
   };
 }
