@@ -83,9 +83,9 @@ and never commit a personal team ID.**
 
 ## Cross-language guards
 
-Two tests in `CricketCore` exist specifically to catch the Swift port
-drifting from the JavaScript it's a port of, and neither's fixtures are ever
-hand-edited:
+Three tests in `CricketCore` exist specifically to catch the Swift port
+drifting from the JavaScript it's a port of, and none of their fixtures are
+ever hand-edited:
 
 - **`WorldGoldenTests`** — decodes a JS-generated meadow
   (`Fixtures/world-seed-7.json`) and checks the Swift `createWorld` produces
