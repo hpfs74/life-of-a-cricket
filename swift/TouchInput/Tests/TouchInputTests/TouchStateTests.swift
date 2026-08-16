@@ -124,6 +124,75 @@ private func freshState() -> TouchState {
     }
 }
 
+@Test @MainActor func aSafeAreaCutoutNeverPushesTheColumnOverThePlayfield() {
+    // The one property that must hold no matter how deep a cutout bites:
+    // sliding the column left to dodge it must never cross back into the
+    // meadow. Sweep a range of insets, including ones deep enough that full
+    // clearance of the cutout itself becomes impossible (see the next test).
+    let width = 874.0, height = 402.0
+    let viewScale = min(width / Config.View.width, height / Config.View.height)
+    let playfieldRight = (width - Config.View.width * viewScale) / 2 + Config.View.width * viewScale
+
+    for inset in [0.0, 20.0, 50.7, 90.0, 200.0] {
+        let layout = touchLayout(width: width, height: height, safeTrailingInset: inset)
+        for button in layout.buttons {
+            #expect(
+                button.x - layout.radius >= playfieldRight - 1e-9,
+                "\(button.id) crossed into the playfield at inset \(inset)"
+            )
+        }
+    }
+}
+
+@Test @MainActor func aSafeAreaCutoutWithRoomToSpareIsFullyCleared() {
+    // A corridor wide enough for the button (a hypothetical inset smaller
+    // than the real Dynamic Island's) must be fully cleared on both sides —
+    // this is the ordinary case the fallback exists for.
+    let width = 1000.0, height = 402.0
+    let layout = touchLayout(width: width, height: height, safeTrailingInset: 10)
+
+    let viewScale = min(width / Config.View.width, height / Config.View.height)
+    let playfieldRight = (width - Config.View.width * viewScale) / 2 + Config.View.width * viewScale
+
+    for button in layout.buttons {
+        #expect(button.x - layout.radius >= playfieldRight, "\(button.id) overlaps the playfield")
+        #expect(button.x + layout.radius <= width - 10, "\(button.id) sits under the cutout")
+    }
+}
+
+@Test @MainActor func onARealDynamicIslandPhoneTheCutoutOverlapShrinksDrastically() {
+    // The measured, real numbers from an iPhone 17 Pro simulator in
+    // landscape: a 874x402pt screen, and a Dynamic Island whose left edge
+    // (measured from a screenshot) sits ~50.7pt in from the trailing edge.
+    // The corridor between the meadow's edge and the island (~64.7pt) is
+    // narrower than one button's diameter (~68.3pt) — genuinely too narrow
+    // for zero overlap on both sides at once. The fix cannot make that
+    // impossible geometry possible; it can only take the overlap from
+    // covering ~40% of a button (the pre-fix defect) down to a sliver.
+    let width = 874.0, height = 402.0
+    let safeTrailingInset = 50.7
+
+    let before = touchLayout(width: width, height: height)
+    let after = touchLayout(width: width, height: height, safeTrailingInset: safeTrailingInset)
+
+    let islandLeft = width - safeTrailingInset
+    func overlap(_ layout: TouchLayout) -> Double {
+        layout.buttons.map { max(0, $0.x + layout.radius - islandLeft) }.max() ?? 0
+    }
+
+    let beforeOverlap = overlap(before)
+    let afterOverlap = overlap(after)
+    #expect(beforeOverlap > afterOverlap * 5, "the fix should shrink the overlap by a large factor")
+    #expect(afterOverlap < after.radius * 0.15, "residual overlap should be a sliver, not a chunk, of a button")
+
+    // And the non-negotiable half of the fix: still nothing over the grass.
+    let viewScale = min(width / Config.View.width, height / Config.View.height)
+    let playfieldRight = (width - Config.View.width * viewScale) / 2 + Config.View.width * viewScale
+    for button in after.buttons {
+        #expect(button.x - after.radius >= playfieldRight - 1e-9)
+    }
+}
+
 @Test @MainActor func releaseAllClearsEverything() {
     let state = freshState()
     let sing = state.currentLayout.buttons.first { $0.id == .sing }!

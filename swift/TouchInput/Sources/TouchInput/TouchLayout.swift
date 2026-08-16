@@ -38,7 +38,13 @@ public struct TouchLayout: Equatable, Sendable {
 /// side bar and over the meadow, and no arc radius clears the meadow without
 /// the buttons overlapping each other. A vertical stack fits the bar
 /// instead, because the bar is narrow but tall.
-public func touchLayout(width: Double, height: Double) -> TouchLayout {
+///
+/// `safeTrailingInset` is how much of the screen's trailing (right, in
+/// screen-space x) edge a hardware cutout — the Dynamic Island, rotated into
+/// landscape — eats into. It has no JS equivalent: a browser tab has no
+/// notch to dodge. Pass `UIView.safeAreaInsets.right`; 0 (the default) is
+/// correct for anything without one, including every existing caller.
+public func touchLayout(width: Double, height: Double, safeTrailingInset: Double = 0) -> TouchLayout {
     typealias T = Config.Touch
     let radius = max(T.buttonMinRadius, min(T.buttonMaxRadius, min(width, height) * T.buttonScale))
 
@@ -56,17 +62,39 @@ public func touchLayout(width: Double, height: Double) -> TouchLayout {
     let pivotX: Double
     if rightBarWidth >= radius * 2 {
         // A real bar, wide enough to hold a button with room either side:
-        // centre the stack inside it.
-        pivotX = width - rightBarWidth / 2
+        // centre the stack inside it, the way it always has been...
+        let barCenteredX = width - rightBarWidth / 2
+        // ...then, if a cutout eats into the trailing edge, slide the whole
+        // column left just far enough to clear it, but never past the point
+        // where it would start covering the meadow — that guarantee comes
+        // first, the cutout comes second.
+        // `drawButton` (in the app's Render layer) strokes each button's
+        // circle with a 2pt line, centred on the fill's edge — so the
+        // button's actual visible boundary sits half that line width (1pt)
+        // outside `radius`. Without this, a button parked exactly at
+        // `radius` from the meadow edge would still let its stroke bleed
+        // 1pt into the grass. `strokeAllowance` closes that.
+        let strokeAllowance = 1.0
+        let meadowLimit = (width - rightBarWidth) + radius + strokeAllowance
+        let safeLimit = width - safeTrailingInset - radius
+        // On a device where the corridor between the meadow's edge and the
+        // cutout is narrower than one button's diameter, `safeLimit` can
+        // fall below `meadowLimit`: no position clears both. `max` then
+        // wins with `meadowLimit`, which is the one property that must
+        // never give — a few points of the button are left under the
+        // cutout rather than a few points over the grass. That is a real,
+        // reported tradeoff on some hardware, not a silent one.
+        pivotX = max(meadowLimit, min(barCenteredX, safeLimit))
     } else {
         // No usable right bar. This happens on a device shaped like an iPad,
         // where the 3:2 view is narrower than the screen and the letterbox
         // bars land above and below the playfield instead of beside it —
         // there is no bar for the stack to sit in. There is no honest fix
-        // for that case: hug the screen's right edge as the least-bad
-        // fallback, and accept that the buttons will sit over the meadow
-        // there.
-        pivotX = width - T.edgePadding - radius
+        // for that case: hug the screen's right edge (adjusted for whichever
+        // of the standard padding or a safe-area cutout demands more room)
+        // as the least-bad fallback, and accept that the buttons will sit
+        // over the meadow there.
+        pivotX = width - max(T.edgePadding, safeTrailingInset) - radius
     }
 
     // Lower-middle of the screen rather than dead centre: that is where a

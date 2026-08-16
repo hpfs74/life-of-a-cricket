@@ -41,7 +41,29 @@ final class TouchCatchingView: UIView {
 
     override func layoutSubviews() {
         super.layoutSubviews()
-        state?.resize(width: Double(bounds.width), height: Double(bounds.height))
+        // `safeAreaInsets` is populated for any `UIView` from its window,
+        // independent of the SwiftUI ancestor's `.ignoresSafeArea()` — that
+        // modifier only permits this view's *frame* to extend under the
+        // cutout, it does not stop UIKit reporting where the cutout is.
+        // `.right` is genuinely screen-space right, not text-direction
+        // `.trailing`, which is what the button column's raw x math wants.
+        state?.resize(
+            width: Double(bounds.width),
+            height: Double(bounds.height),
+            safeTrailingInset: Double(safeAreaInsets.right)
+        )
+    }
+
+    override func safeAreaInsetsDidChange() {
+        super.safeAreaInsetsDidChange()
+        // A rotation changes which physical edge the cutout sits on without
+        // necessarily changing `bounds`, so this needs its own hook rather
+        // than relying on `layoutSubviews` alone.
+        state?.resize(
+            width: Double(bounds.width),
+            height: Double(bounds.height),
+            safeTrailingInset: Double(safeAreaInsets.right)
+        )
     }
 
     override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {

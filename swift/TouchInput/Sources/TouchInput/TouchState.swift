@@ -44,9 +44,12 @@ public final class TouchState: ObservableObject {
     public init() {}
 
     /// Recomputes the button/stick-zone layout for a screen of this size.
-    /// Call whenever the view's bounds change.
-    public func resize(width: Double, height: Double) {
-        layout = touchLayout(width: width, height: height)
+    /// Call whenever the view's bounds change. `safeTrailingInset` is
+    /// `UIView.safeAreaInsets.right` on the hosting view — how much of the
+    /// trailing edge a hardware cutout (Dynamic Island, rotated into
+    /// landscape) eats into; 0 where there is none.
+    public func resize(width: Double, height: Double, safeTrailingInset: Double = 0) {
+        layout = touchLayout(width: width, height: height, safeTrailingInset: safeTrailingInset)
     }
 
     public var currentLayout: TouchLayout { layout }
