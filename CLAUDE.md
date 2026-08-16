@@ -82,11 +82,19 @@ A native iOS port lives in `swift/`, additive and independent — the deploy wor
 # `sudo xcode-select`; set it per-invocation instead.
 cd swift/CricketCore && DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer swift test
 
-# Build the app (placeholder screen until the render layer lands)
+# Touch-layout tests (the multi-touch logic lives in its own package so it is
+# testable without a real UITouch)
+cd swift/TouchInput && DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer swift test
+
+# Build the app
 export DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer
 xcodebuild -project swift/LifeOfACricket/LifeOfACricket.xcodeproj \
   -scheme LifeOfACricket -destination 'platform=iOS Simulator,name=iPhone 17 Pro' build
 ```
+
+`xcodebuild` rewrites `project.pbxproj` — it downgrades `objectVersion` 77→70 (which breaks the synchronized file group) and injects a local `DEVELOPMENT_TEAM`. Check `git status` after building and `git checkout` that file if it changed; never commit it.
+
+The game is playable: meadow and house, rendered with SwiftUI `Canvas`, driven by real multi-touch controls stacked in the letterbox bar. Audio (spec phase 8) is **not** ported — `GameRunner.latestEvents` is the hook it will read.
 
 Structure mirrors the JS separation: `swift/CricketCore/` is a SwiftPM package holding the whole simulation and importing **only** the standard library plus platform libm (`import Darwin`/`Glibc` behind a `canImport` shim — the stdlib has no `sin`/`cos`). `swift/LifeOfACricket/` is the iOS app. That boundary is why `swift test` runs in seconds without a simulator.
 
