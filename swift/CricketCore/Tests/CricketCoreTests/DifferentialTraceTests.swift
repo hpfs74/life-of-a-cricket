@@ -6,12 +6,20 @@
 // order RNG draws happen in, that still satisfies every rule in isolation but
 // diverges the two simulations over time.
 //
-// The four scenarios below are fixed at `swift/tools/dump-game-trace.mjs`;
+// The six scenarios below are fixed at `swift/tools/dump-game-trace.mjs`;
 // regenerate their fixtures with
 //   node swift/tools/dump-game-trace.mjs <scenario> > swift/CricketCore/Tests/CricketCoreTests/Fixtures/trace-<scenario>.json
 // if `src/game.js` (or one of the systems it drives) changes on purpose. If
 // this test ever fails without such a change, the JavaScript is the
 // reference: fix the Swift, never the fixture.
+//
+// Collectively, the six scenarios exercise: a day rollover and the
+// `reshuffleMeadow` it triggers (`silent-baseline`); night, so bats spawn
+// rather than birds (`silent-baseline`, `house-siege`); jump/land and the
+// song-break a jump forces (`singing`); a bird, a spider and a cat hit, and
+// three separate runs to `game-over` (`singing`, `spider-encounter`,
+// `house-siege`); the full spider state machine (`spider-encounter`); and the
+// cat and a full human crossing (`house-siege`).
 import Testing
 import Foundation
 @testable import CricketCore
@@ -165,13 +173,33 @@ private func replay(
     }
 }
 
+/// A long stretch of singing, interrupted every two seconds by a single-frame
+/// jump press: song scoring and the attention meter it drives, the birds (and,
+/// once night falls partway through, bats) it eventually summons, and — the
+/// jump being a fresh press each time — the full jump/land cycle and the
+/// song-break it forces (a leap cancels singing outright). Long enough
+/// (2400 frames = 40s) that the birds it keeps drawing eventually spend every
+/// life: the only scenario that runs a game to game-over purely through
+/// aerial predators.
 @Test func singingScenarioMatchesTheJavaScriptTraceFrameByFrame() throws {
     let trace = try loadTrace("singing")
     var game = Game(store: MemoryHighScoreStore(), rng: SeededRandom(seed: 7))
     game.startRun()
-    replay(&game, trace: trace, scenario: "singing") { _, _ in Intent(sing: true) }
+    replay(&game, trace: trace, scenario: "singing") { _, i in
+        if i > 0 && i % 120 == 0 { return Intent(jump: true) }
+        return Intent(sing: true)
+    }
 }
 
+/// A long baseline stretch of silence: food spawn/settle/consumption, rival
+/// wandering, respawn timers and the meals they eat (rival-ate), and the
+/// patrol clock's own bird spawns, none of which the singing scenario
+/// touches. 1830 frames (30.5s) is deliberately just past one full day
+/// (`Config.Game.secondsPerDay` is 30): it crosses night — the dark half of
+/// the very first day, roughly frames 450-1350, so any bird the patrol clock
+/// spawns there is a bat — and then a day rollover, which rebuilds the meadow
+/// from scratch (`reshuffleMeadow`, the single largest RNG consumer in the
+/// game) and reseeds its spiders and rivals.
 @Test func silentBaselineScenarioMatchesTheJavaScriptTraceFrameByFrame() throws {
     let trace = try loadTrace("silent-baseline")
     var game = Game(store: MemoryHighScoreStore(), rng: SeededRandom(seed: 21))
@@ -229,4 +257,40 @@ private func replay(
         }
         return .idle
     }
+}
+
+/// Teleports the cricket into a spider's own tuft and holds it there. A
+/// spider is disturbed by touch, not sound or sight, so standing still on top
+/// of one is enough: it wakes, winds up and lunges — and because the cricket
+/// never moves away, it keeps connecting each time the spider recovers and
+/// re-triggers, running out every life. Exercises the entire spider state
+/// machine (LURKING -> WINDUP -> LUNGE -> RECOVER), which none of the other
+/// scenarios ever touch.
+@Test func spiderEncounterScenarioMatchesTheJavaScriptTraceFrameByFrame() throws {
+    let trace = try loadTrace("spider-encounter")
+    var game = Game(store: MemoryHighScoreStore(), rng: SeededRandom(seed: 7))
+    game.startRun()
+    let spider = game.spiders[0]
+    game.cricket.x = spider.homeX
+    game.cricket.y = spider.homeY
+
+    replay(&game, trace: trace, scenario: "spider-encounter") { _, _ in .idle }
+}
+
+/// Steps through the meadow door on the very first frame (stageCooldown is 0
+/// on a fresh run, so the crossing happens immediately) and then holds still
+/// indoors for a long stretch. Long enough for the cat to prowl into notice
+/// range, stalk and pounce, and for the human's own schedule (9-18s between
+/// crossings) to send at least one full walk through — approaching,
+/// footfalls, gone — and, eventually, to run out of lives. Exercises the cat
+/// and the human, neither of which any other scenario ever goes indoors long
+/// enough to meet.
+@Test func houseSiegeScenarioMatchesTheJavaScriptTraceFrameByFrame() throws {
+    let trace = try loadTrace("house-siege")
+    var game = Game(store: MemoryHighScoreStore(), rng: SeededRandom(seed: 15))
+    game.startRun()
+    game.cricket.x = game.world.door.x
+    game.cricket.y = game.world.door.y
+
+    replay(&game, trace: trace, scenario: "house-siege") { _, _ in .idle }
 }

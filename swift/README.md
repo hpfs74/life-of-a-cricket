@@ -100,8 +100,12 @@ hand-edited:
   night, lives, score, and cricket position. Unit tests pin individual rules;
   this catches what they structurally cannot — a regression in operation
   order, or RNG draw order, that still satisfies every rule in isolation but
-  diverges the two simulations over time. Regenerate a scenario's fixture
-  with:
+  diverges the two simulations over time. Six scenarios, a few thousand
+  frames total, chosen to collectively exercise a day rollover and the
+  `reshuffleMeadow` it triggers, night (so bats spawn instead of birds),
+  jump/land and the song-break a jump forces, a bird/spider/cat hit and three
+  separate runs to game-over, the full spider state machine, and the cat and
+  a full human crossing. Regenerate a scenario's fixture with:
   ```bash
   node swift/tools/dump-game-trace.mjs <scenario> > swift/CricketCore/Tests/CricketCoreTests/Fixtures/trace-<scenario>.json
   ```

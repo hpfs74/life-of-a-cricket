@@ -92,9 +92,9 @@ Structure mirrors the JS separation: `swift/CricketCore/` is a SwiftPM package h
 
 The `.xcodeproj` uses a `PBXFileSystemSynchronizedRootGroup`, so adding Swift files needs no project-file edits.
 
-**Two cross-language checks guard the port, and both compare against the running JavaScript:**
-- `WorldGoldenTests` — Swift and JS generate identical meadows for a shared seed.
-- `DifferentialTraceTests` — `Game` is replayed frame by frame against `src/game.js` over four scenarios (singing, silent, combat, house round trip).
+**Cross-language checks guard the port, and all compare against the running JavaScript:**
+- `WorldGoldenTests` / `HouseGoldenTests` — Swift and JS generate identical meadows, and identical houses, for a shared seed.
+- `DifferentialTraceTests` — `Game` is replayed frame by frame against `src/game.js` over six scenarios (singing+jump, silent baseline, combat, house round trip, spider encounter, house siege), chosen to collectively cross a day rollover, night, jump/land, song-break, a hit and game-over from a bird/spider/cat, the full spider state machine, and a cat encounter plus a full human crossing.
 
 Both read fixtures under `Tests/CricketCoreTests/Fixtures/`. **Regenerate them from the JS with `swift/tools/dump-*.mjs`; never hand-edit them.** If one fails, the Swift has drifted — fix the Swift.
 

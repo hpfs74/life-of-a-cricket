@@ -104,21 +104,36 @@ function snapshot(game, frameEvents) {
 // results back out of the simulation mid-run, so the same script produces the
 // same sequence of inputs regardless of implementation.
 const scenarios = {
-  // A baseline stretch of continuous singing: song scoring, the attention
-  // meter, and the birds it eventually summons.
+  // A long stretch of singing, interrupted every two seconds by a single-frame
+  // jump press: song scoring and the attention meter it drives, the birds
+  // (and, once night falls partway through, bats) it eventually summons, and
+  // — because the jump is a fresh press each time — the full jump/land cycle
+  // and the song-break it forces (a leap cancels singing outright). Long
+  // enough (2400 frames = 40s) that the birds it keeps drawing eventually spend
+  // every life: the only scenario that runs a game to game-over purely through
+  // aerial predators.
   singing: {
     seed: 7,
-    frames: 300,
+    frames: 2400,
     setup() {},
-    intentFor() { return { dx: 0, dy: 0, sing: true, jump: false, strike: false }; },
+    intentFor(game, i) {
+      if (i > 0 && i % 120 === 0) return { dx: 0, dy: 0, sing: false, jump: true, strike: false };
+      return { dx: 0, dy: 0, sing: true, jump: false, strike: false };
+    },
   },
 
-  // A baseline stretch of silence: food spawn/settle/consumption, rival
-  // wandering and respawn timers, and the patrol clock's own bird spawns,
-  // none of which the singing scenario touches.
+  // A long baseline stretch of silence: food spawn/settle/consumption, rival
+  // wandering, respawn timers and the meals they eat (rival-ate), and the
+  // patrol clock's own bird spawns, none of which the singing scenario
+  // touches. 1830 frames (30.5s) is deliberately just past one full day
+  // (CONFIG.game.secondsPerDay = 30): it crosses night — the dark half of the
+  // very first day, roughly frames 450-1350, so any bird the patrol clock
+  // spawns there is a bat — and then a day rollover, which rebuilds the
+  // meadow from scratch (`reshuffleMeadow`, the single largest RNG consumer
+  // in the game) and reseeds its spiders and rivals.
   'silent-baseline': {
     seed: 21,
-    frames: 300,
+    frames: 1830,
     setup() {},
     intentFor() { return idle; },
   },
@@ -187,6 +202,42 @@ const scenarios = {
       }
       return idle;
     },
+  },
+
+  // Teleports the cricket into a spider's own tuft and holds it there. A
+  // spider is disturbed by touch, not sound or sight, so standing still on
+  // top of one is enough: it wakes, winds up and lunges — and because the
+  // cricket never moves away, it keeps connecting each time the spider
+  // recovers and re-triggers, running out every life. Exercises the entire
+  // spider state machine (LURKING -> WINDUP -> LUNGE -> RECOVER), which none
+  // of the other scenarios ever touch.
+  'spider-encounter': {
+    seed: 7,
+    frames: 350,
+    setup(game) {
+      const spider = game.spiders[0];
+      game.cricket.x = spider.homeX;
+      game.cricket.y = spider.homeY;
+    },
+    intentFor() { return idle; },
+  },
+
+  // Steps through the meadow door on the very first frame (stageCooldown is
+  // 0 on a fresh run, so the crossing happens immediately) and then holds
+  // still indoors for a long stretch. Long enough for the cat to prowl into
+  // notice range, stalk and pounce, and for the human's own schedule
+  // (9-18s between crossings) to send at least one full walk through —
+  // approaching, footfalls, gone — and, eventually, to run out of lives.
+  // Exercises the cat and the human, neither of which any other scenario
+  // ever goes indoors long enough to meet.
+  'house-siege': {
+    seed: 15,
+    frames: 1900,
+    setup(game) {
+      game.cricket.x = game.world.door.x;
+      game.cricket.y = game.world.door.y;
+    },
+    intentFor() { return idle; },
   },
 };
 
