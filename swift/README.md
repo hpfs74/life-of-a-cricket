@@ -94,6 +94,14 @@ hand-edited:
   node swift/tools/dump-world-fixture.mjs 7 > swift/CricketCore/Tests/CricketCoreTests/Fixtures/world-seed-7.json
   ```
 
+- **`HouseGoldenTests`** — the same idea for `createHouse`
+  (`Fixtures/house-seed-7.json`): bands, stairs, the door, cover and water,
+  field for field at 1e-9 tolerance. `createHouse`'s rejection-sampling draw
+  order otherwise rests on hand-reading alone. Regenerate with:
+  ```bash
+  node swift/tools/dump-house-fixture.mjs 7 > swift/CricketCore/Tests/CricketCoreTests/Fixtures/house-seed-7.json
+  ```
+
 - **`DifferentialTraceTests`** — drives the Swift `Game` through the same
   scripted inputs, from the same seed, as `dump-game-trace.mjs` drives the
   real `src/game.js` through, and compares every frame: phase, stage, day,
