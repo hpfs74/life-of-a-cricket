@@ -141,7 +141,8 @@ export function drawOverlay(ctx, game, time = 0) {
   if (game.phase === 'MENU') {
     panel(ctx, game, [
       { text: 'Life of a Cricket', font: '700 48px ui-sans-serif, system-ui, sans-serif', gap: 62 },
-      { text: 'Move with WASD or the arrow keys. Hold SPACE to sing.', color: 'rgba(255,255,255,0.85)' },
+      { text: 'Move with WASD or the arrow keys. Hold E to sing.', color: 'rgba(255,255,255,0.85)' },
+      { text: 'SPACE leaps to cover · F swings at a bug.', color: 'rgba(255,255,255,0.85)' },
       { text: 'Singing scores — and it is loud. Birds come for the noise.', color: 'rgba(255,255,255,0.85)' },
       { text: 'Hide in grass, rocks and leaves. Cover only saves you if you stay quiet.', color: 'rgba(255,255,255,0.85)', gap: 56 },
       { text: 'Press ENTER to begin \u00b7 or touch the screen', color: '#ffe9a8', font: '700 22px ui-sans-serif, system-ui, sans-serif' },
