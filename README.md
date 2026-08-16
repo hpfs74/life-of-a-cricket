@@ -32,14 +32,20 @@ ES module imports over `file://`.
 
 On a phone, put a thumb down anywhere on the left half and a stick appears there
 — there is nothing to aim for, and lifting off stops the cricket dead, which
-matters because singing needs it standing still. The three actions sit on an arc
-under the right thumb. Steering and pressing act independently, so you can run
-and swing at the same time.
+matters because singing needs it standing still. The three actions stack
+vertically under the right thumb, sing on top, leap in the middle, strike at
+the bottom. Steering and pressing act independently, so you can run and swing
+at the same time.
 
-The controls are drawn in the letterbox around the playfield, so they never
-cover any of the meadow. Held upright, the game pauses and asks you to turn the
-phone sideways: the meadow is three screens wide and the house is a cutaway, and
-both need the width to be readable.
+The controls are drawn in the letterbox around the playfield, so on a phone
+they never cover any of the meadow: the stack sits centred inside the
+right-hand letterbox bar. That only holds on phone-shaped screens, though — on
+an iPad the 3:2 view is narrower than the display, so the letterbox bars land
+above and below the playfield instead of beside it, and there is no bar for the
+buttons to live in; there they fall back to hugging the screen's right edge and
+do sit over the meadow. Held upright, the game pauses and asks you to turn the
+phone sideways: the meadow is three screens wide and the house is a cutaway,
+and both need the width to be readable.
 
 The credits scroll continuously at the foot of the title screen.
 
