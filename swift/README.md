@@ -148,3 +148,63 @@ Swift, never the fixture.**
   `../docs/superpowers/plans/2026-08-15-swift-simulation-core.md`
 - Render-and-touch plan (built everything else in this directory):
   `../docs/superpowers/plans/2026-08-15-swift-render-and-touch.md`
+
+## Getting it onto family devices (TestFlight)
+
+With a paid Apple Developer Program membership, TestFlight is the practical
+route: no UDIDs to collect, no cables, and builds last 90 days instead of the
+7 a free personal team gives you. Testers install Apple's TestFlight app and
+tap a link.
+
+**One-time setup**
+
+1. In the [developer portal](https://developer.apple.com/account/resources/identifiers/list),
+   register the bundle ID `com.hpfs.LifeOfACricket`.
+2. In [App Store Connect](https://appstoreconnect.apple.com), create a new iOS
+   app record against that bundle ID.
+3. Open the project in Xcode, select the **LifeOfACricket** target →
+   **Signing & Capabilities**, and set **Team** to your developer account.
+   Leave signing on Automatic.
+
+**Each build**
+
+```bash
+# Bump the build number first — App Store Connect rejects a repeat.
+# MARKETING_VERSION is the human version (1.0); CURRENT_PROJECT_VERSION is
+# the build number, and must increase every upload.
+```
+
+Then in Xcode: **Product → Archive** → **Distribute App** → **App Store
+Connect** → **Upload**. Archiving needs a real device (or "Any iOS Device")
+selected as the destination, not a simulator.
+
+Export compliance is answered in `Info.plist` via
+`ITSAppUsesNonExemptEncryption = false` — the game uses no encryption — so
+uploads do not stop to ask.
+
+**Inviting family**
+
+In App Store Connect → your app → **TestFlight**, add an *External* group,
+add the build to it, and enable the **public link**. Send that link; testers
+need only an Apple ID, not an App Store Connect account. The first build for
+an external group goes through Beta App Review (usually about a day);
+later builds are typically released automatically.
+
+For anyone with a device physically to hand, the plain Xcode run described
+above still works and skips review entirely.
+
+## The app icon
+
+There are no image assets in this project — every visual is drawn with
+primitives — so the icon is generated too:
+
+```bash
+swift swift/tools/make-app-icon.swift \
+  swift/LifeOfACricket/Sources/Assets.xcassets/AppIcon.appiconset/AppIcon-1024.png
+```
+
+It draws the cricket and a note in the palette lifted from
+`src/render/entities.js`, so the icon and the cricket on screen are literally
+the same greens. Edit the script rather than the PNG. The output is
+1024×1024 and opaque, as the App Store requires — no alpha, no rounded
+corners (iOS applies the mask itself).
