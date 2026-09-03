@@ -1,0 +1,85 @@
+# CodeRabbit configuration — https://docs.coderabbit.ai/guides/configure-coderabbit
+#
+# The point of the path_instructions below is that this repo has hard
+# constraints a general-purpose reviewer cannot guess: no dependencies, no
+# build step, and a Swift port that must stay behaviourally identical to the
+# JavaScript it was ported from.
+
+language: en-GB
+
+reviews:
+  profile: chill
+  request_changes_workflow: false
+  high_level_summary: true
+  review_status: true
+  collapse_walkthrough: true
+  poem: false
+
+  auto_review:
+    enabled: true
+    drafts: false
+
+  path_filters:
+    # Generated from the JavaScript by swift/tools/dump-*.mjs. Megabytes of
+    # JSON, never hand-written, and reviewing them is noise.
+    - "!swift/CricketCore/Tests/CricketCoreTests/Fixtures/**"
+    # Xcode rewrites this on every build; it is not hand-edited source.
+    - "!**/*.pbxproj"
+    - "!**/*.xcscheme"
+    # Agent working notes, git-ignored scratch.
+    - "!.superpowers/**"
+
+  path_instructions:
+    - path: "src/**/*.js"
+      instructions: >-
+        This is a zero-dependency, zero-build-step browser game. Flag any
+        suggestion that would add a dependency, a bundler, a transpiler, or a
+        build step — the files in the repo are the files that ship.
+        Imports must carry explicit .js extensions. All tunable numbers live
+        in src/config.js; logic modules must not carry numeric literals.
+        Anything under src/render/ is a pure reader and must never mutate
+        simulation state.
+
+    - path: "swift/CricketCore/Sources/**/*.swift"
+      instructions: >-
+        This package is a port of the JavaScript in src/, and must stay
+        behaviourally identical to it. When reviewing a change here, compare
+        against the corresponding src/*.js file and say plainly if behaviour
+        would diverge.
+        Two constraints matter most. First, this target may import ONLY the
+        Swift standard library plus platform libm (import Darwin/Glibc behind
+        a canImport shim) — never Foundation, SwiftUI, UIKit or CoreGraphics.
+        Second, the ORDER and COUNT of rng() calls must match the JavaScript
+        exactly: cross-language golden and differential tests replay this
+        code against the running JS with a shared seed, so one extra or
+        missing draw desynchronises everything after it. Flag any rng draw
+        left inside a struct literal or call argument — Swift does not
+        guarantee argument evaluation order, so draws must be hoisted into
+        explicit sequential let bindings.
+
+    - path: "swift/LifeOfACricket/Sources/Render/**/*.swift"
+      instructions: >-
+        Renderers are pure readers: they take the Game by value and must
+        never mutate simulation state. They are ported from src/render/*.js —
+        compare against the corresponding file. Colours belong in
+        Palette.swift, not inline in drawing code.
+
+    - path: "swift/**/Tests/**/*.swift"
+      instructions: >-
+        Judge whether each test would actually CATCH a regression, not just
+        pass. For any assertion, ask what the smallest plausible mutation to
+        the code under test would be that leaves the test green — and say so
+        if one exists. Note especially that Swift's zip() stops at the shorter
+        sequence, so comparing two arrays without first asserting their counts
+        are equal lets a truncated result pass silently.
+
+    - path: "tests/**/*.js"
+      instructions: >-
+        Same standard as the Swift tests: judge whether a test would catch a
+        regression. Note that world generation takes an rng parameter so tests
+        can inject determinism, and that the degenerate `() => 0.5` generator
+        yields a meadow with no cover at all — tests needing real cover must
+        use a seeded LCG.
+
+chat:
+  auto_reply: true

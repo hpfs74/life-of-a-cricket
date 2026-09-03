@@ -1,0 +1,76 @@
+name: CodeRabbit
+
+# Gates merges on the CodeRabbit review: the check is red until CodeRabbit has
+# reviewed the head commit and every thread it opened is resolved. Make it a
+# required check in branch protection for it to actually block a merge.
+#
+# ponytail: GitHub emits no webhook when a review thread is resolved, so this
+# will not re-run on its own after you resolve the last one — re-run the check,
+# or push. Fixing that properly means polling on a schedule; not worth it.
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  pull_request_review:
+  pull_request_review_comment:
+
+concurrency:
+  group: coderabbit-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  unresolved:
+    name: Review resolved
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      pull-requests: read
+
+    steps:
+      - name: Check CodeRabbit's threads
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR: ${{ github.event.pull_request.number }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          gh api graphql -F owner="${{ github.repository_owner }}" \
+            -F repo="${{ github.event.repository.name }}" -F pr="${PR}" -f query='
+            query($owner:String!, $repo:String!, $pr:Int!) {
+              repository(owner:$owner, name:$repo) {
+                pullRequest(number:$pr) {
+                  reviews(last:100) { nodes { author { login } commit { oid } } }
+                  reviewThreads(first:100) {
+                    nodes {
+                      isResolved
+                      comments(first:1) { nodes { author { login } url } }
+                    }
+                  }
+                }
+              }
+            }' > review.json
+
+          # A review of an older commit does not count: a push invalidates it.
+          reviewed=$(jq -r --arg sha "${HEAD_SHA}" '
+            [ .data.repository.pullRequest.reviews.nodes[]
+              | select(.author.login == "coderabbitai" and .commit.oid == $sha) ] | length
+          ' review.json)
+          if [ "${reviewed}" = "0" ]; then
+            echo "CodeRabbit has not reviewed ${HEAD_SHA} yet." >&2
+            exit 1
+          fi
+
+          jq -r '
+            .data.repository.pullRequest.reviewThreads.nodes[]
+            | select(.isResolved | not)
+            | .comments.nodes[0]
+            | select(.author.login == "coderabbitai")
+            | .url
+          ' review.json > open.txt
+
+          if [ -s open.txt ]; then
+            echo "Unresolved CodeRabbit threads:" | tee -a "${GITHUB_STEP_SUMMARY}" >&2
+            sed 's/^/- /' open.txt | tee -a "${GITHUB_STEP_SUMMARY}" >&2
+            exit 1
+          fi
+
+          echo "CodeRabbit reviewed, no unresolved threads." >> "${GITHUB_STEP_SUMMARY}"
