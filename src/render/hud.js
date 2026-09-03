@@ -30,9 +30,14 @@ export function drawHud(ctx, game) {
 
   ctx.font = '600 13px ui-sans-serif, system-ui, sans-serif';
   ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+  // Keep BEST honest while the run is still going.
+  game.score.highScore = Math.max(game.score.highScore, Math.floor(game.score.points));
   ctx.fillText(`BEST ${game.score.highScore}`, 22, 56);
 
-  meter(ctx, 22, 82, 160, 10, game.attention.value, '#ff6b5e', 'attention');
+  // Redden the attention meter once the cricket is close to being spotted.
+  const dangerThreshold = 0.8;
+  const attentionColor = game.attention.value > dangerThreshold ? '#ff2d1a' : '#ff6b5e';
+  meter(ctx, 22, 82, 160, 10, game.attention.value, attentionColor, 'attention');
   meter(ctx, 22, 100, 160, 10, game.score.fed / CONFIG.score.fedSeconds, '#7fd36a', 'fed');
 
   // The day counter sits dead centre at the top: it is the run's headline stat.
