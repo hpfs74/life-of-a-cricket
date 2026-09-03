@@ -1,0 +1,89 @@
+name: Deploy
+
+# Publishes the game to https://theteresa.com/life-of-a-cricket on every push
+# to main. Tests gate the deploy: a red suite never reaches the site.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Never let two deploys race each other onto the same prefix.
+concurrency:
+  group: deploy-life-of-a-cricket
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: eu-south-1
+  BUCKET: the-teresa-bucket
+  PREFIX: life-of-a-cricket
+  DISTRIBUTION_ID: E3ST8GCSX6Y2A
+
+jobs:
+  test:
+    name: Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      # No dependencies to install: the suite runs on Node's built-in runner.
+      - name: Run tests
+        run: npm test
+
+  deploy:
+    name: Publish
+    needs: test
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      # Required for the short-lived OIDC token. No AWS keys are stored anywhere.
+      id-token: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Assume the deploy role
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::495133941005:role/life-of-a-cricket-deploy
+          role-session-name: deploy-${{ github.run_id }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      # The bucket also serves the rest of theteresa.com, so this uploads only
+      # the game's own files and deliberately never passes --delete. The role it
+      # runs under has no delete permission either, so nothing outside the game
+      # prefix can be touched even if this step were wrong.
+      - name: Upload game files
+        run: |
+          aws s3 sync . "s3://${BUCKET}/${PREFIX}/" \
+            --exclude "*" \
+            --include "index.html" \
+            --include "styles.css" \
+            --include "src/*.js" \
+            --include "src/render/*.js" \
+            --no-progress
+
+      - name: Invalidate the game's cached paths
+        run: |
+          aws cloudfront create-invalidation \
+            --distribution-id "${DISTRIBUTION_ID}" \
+            --paths "/${PREFIX}" "/${PREFIX}/*" \
+            --query 'Invalidation.Id' --output text
+
+      - name: Check the site is serving the new build
+        run: |
+          for attempt in 1 2 3 4 5 6; do
+            status=$(curl -s -o /dev/null -w '%{http_code}' "https://theteresa.com/${PREFIX}")
+            echo "attempt ${attempt}: HTTP ${status}"
+            if [ "${status}" = "200" ]; then
+              echo "Published to https://theteresa.com/${PREFIX}" >> "${GITHUB_STEP_SUMMARY}"
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "The site did not return 200 after publishing." >&2
+          exit 1
